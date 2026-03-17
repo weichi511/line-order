@@ -119,36 +119,32 @@ function switchTab(c){
 
 /******** 顯示菜單 ********/
 function renderMenu(){
-
   let html="";
-
+  // 確保比對時兩邊都去除了空白，並處理可能為空值的情況
   const list = menuData.filter(i =>
-    (i.category || "").trim() === currentCategory
+    (i.category || "").trim() === (currentCategory || "").trim()
   );
-
+  
   if(list.length === 0){
-    html = "<div class='empty'>⚠️ 此分類沒有商品</div>";
-  }else{
+    html = "<div class='empty'> ⚠️ 此分類沒有商品</div>";
+  } else {
     list.forEach(i=>{
-
       const qty = cart[i.id]?.qty || 0;
-
       html += `
-      <div class="card">
-        <div class="row">
-          <div>
-            <b>${i.name}</b><br>$${i.price}
+        <div class="card">
+          <div class="row">
+            <div>
+              <b>${i.name}</b><br>$${i.price}
+            </div>
+            <div class="qty">
+              <button onclick="minus('${i.id}')">-</button>
+              ${qty}
+              <button onclick="add('${i.id}','${i.name}',${i.price})">+</button>
+            </div>
           </div>
-          <div class="qty">
-            <button onclick="minus('${i.id}')">-</button>
-            ${qty}
-            <button onclick="add('${i.id}','${i.name}',${i.price})">+</button>
-          </div>
-        </div>
-      </div>`;
+        </div>`;
     });
   }
-
   document.getElementById("menu").innerHTML = html;
   renderCart();
 }
