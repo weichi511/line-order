@@ -11,7 +11,7 @@
 body{margin:0;font-family:sans-serif;background:#f5f6fa}
 .header{background:#06c755;color:#fff;padding:14px;text-align:center;font-weight:bold}
 .tabs{display:flex;background:#fff}
-.tab{flex:1;padding:10px;text-align:center;border-bottom:2px solid #eee}
+.tab{flex:1;padding:10px;text-align:center;border-bottom:2px solid #eee;cursor:pointer}
 .active{border-bottom:2px solid #06c755;font-weight:bold}
 .container{padding:10px}
 .card{background:#fff;border-radius:10px;padding:10px;margin-bottom:10px}
@@ -19,6 +19,7 @@ body{margin:0;font-family:sans-serif;background:#f5f6fa}
 .qty button{width:28px;height:28px}
 .cart{position:fixed;bottom:0;width:100%;background:#fff;padding:10px;border-top:1px solid #ddd}
 .checkout{background:#ff6b6b;color:#fff;border:none;padding:10px 14px;border-radius:6px}
+.empty{color:#999;text-align:center;padding:20px}
 </style>
 </head>
 
@@ -37,9 +38,8 @@ body{margin:0;font-family:sans-serif;background:#f5f6fa}
 </div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbwEvek5zSLLyuifSVorNOvy-y_C-unfcCJgM_EFQaxsSxnLnn3pGtatnc2wHpZ5uFuo/exec";   // ⭐必填 你的GAS網址
-const LIFF_ID = "2009489969-hNC94ctJ"; // ⭐必填 你的LIFF_ID
-
+const API = "https://script.google.com/macros/s/AKfycby_6Tophx7nf583mQ5rkLTzIYrobzLx5iv03d6RyJaytJnUPlkc6RZm4buDbDeKdAKr/exec";
+const LIFF_ID = "2009489969-hNC94ctJ";
 
 let menuData = [];
 let cart = {};
@@ -75,13 +75,22 @@ async function loadMenu(){
   const json = await res.json();
   menuData = json.data || [];
 
+  if(menuData.length === 0){
+    document.getElementById("menu").innerHTML = "<div class='empty'>⚠️ 尚未設定菜單</div>";
+    return;
+  }
+
   renderTabs();
   renderMenu();
 }
 
 /******** 分類 ********/
 function renderTabs(){
-  const categories = [...new Set(menuData.map(i=>i.category))];
+
+  const categories = [...new Set(
+    menuData.map(i => (i.category || "").trim())
+  )];
+
   currentCategory = categories[0];
 
   let html="";
@@ -100,25 +109,35 @@ function switchTab(c){
 
 /******** 顯示菜單 ********/
 function renderMenu(){
+
   let html="";
-  menuData.filter(i=>i.category===currentCategory).forEach(i=>{
 
-    const qty = cart[i.id]?.qty || 0;
+  const list = menuData.filter(i =>
+    (i.category || "").trim() === currentCategory
+  );
 
-    html += `
-    <div class="card">
-      <div class="row">
-        <div>
-          <b>${i.name}</b><br>$${i.price}
+  if(list.length === 0){
+    html = "<div class='empty'>⚠️ 此分類沒有商品</div>";
+  }else{
+    list.forEach(i=>{
+
+      const qty = cart[i.id]?.qty || 0;
+
+      html += `
+      <div class="card">
+        <div class="row">
+          <div>
+            <b>${i.name}</b><br>$${i.price}
+          </div>
+          <div class="qty">
+            <button onclick="minus('${i.id}')">-</button>
+            ${qty}
+            <button onclick="add('${i.id}','${i.name}',${i.price})">+</button>
+          </div>
         </div>
-        <div class="qty">
-          <button onclick="minus('${i.id}')">-</button>
-          ${qty}
-          <button onclick="add('${i.id}','${i.name}',${i.price})">+</button>
-        </div>
-      </div>
-    </div>`;
-  });
+      </div>`;
+    });
+  }
 
   document.getElementById("menu").innerHTML = html;
   renderCart();
@@ -140,6 +159,7 @@ function minus(id){
 
 /******** 購物車 ********/
 function renderCart(){
+
   let total=0, html="";
 
   Object.values(cart).forEach(i=>{
