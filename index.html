@@ -3,91 +3,22 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>LINE 點餐系統</title>
+<title>LINE 點餐</title>
 
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
 <style>
-body {
-  margin:0;
-  font-family:sans-serif;
-  background:#f5f6fa;
-}
-
-.header {
-  background:#06c755;
-  color:white;
-  padding:16px;
-  text-align:center;
-  font-size:20px;
-  font-weight:bold;
-}
-
-.container {
-  padding:12px;
-}
-
-.card {
-  background:white;
-  border-radius:12px;
-  padding:12px;
-  margin-bottom:12px;
-  box-shadow:0 2px 6px rgba(0,0,0,0.05);
-}
-
-.item {
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-}
-
-.item-left {
-  display:flex;
-  align-items:center;
-}
-
-.item img {
-  width:60px;
-  height:60px;
-  border-radius:8px;
-  margin-right:10px;
-}
-
-.name {
-  font-weight:bold;
-}
-
-.price {
-  color:#888;
-  font-size:14px;
-}
-
-.btn {
-  background:#06c755;
-  color:white;
-  border:none;
-  padding:6px 12px;
-  border-radius:6px;
-}
-
-.cart {
-  position:fixed;
-  bottom:0;
-  width:100%;
-  background:white;
-  padding:10px;
-  border-top:1px solid #ddd;
-  display:flex;
-  justify-content:space-between;
-}
-
-.checkout {
-  background:#ff6b6b;
-  color:white;
-  border:none;
-  padding:10px 16px;
-  border-radius:8px;
-}
+body{margin:0;font-family:sans-serif;background:#f5f6fa}
+.header{background:#06c755;color:#fff;padding:14px;text-align:center;font-weight:bold}
+.tabs{display:flex;background:#fff}
+.tab{flex:1;padding:10px;text-align:center;border-bottom:2px solid #eee}
+.active{border-bottom:2px solid #06c755;font-weight:bold}
+.container{padding:10px}
+.card{background:#fff;border-radius:10px;padding:10px;margin-bottom:10px}
+.row{display:flex;justify-content:space-between;align-items:center}
+.qty button{width:28px;height:28px}
+.cart{position:fixed;bottom:0;width:100%;background:#fff;padding:10px;border-top:1px solid #ddd}
+.checkout{background:#ff6b6b;color:#fff;border:none;padding:10px 14px;border-radius:6px}
 </style>
 </head>
 
@@ -95,9 +26,12 @@ body {
 
 <div class="header">🍱 點餐系統</div>
 
-<div class="container" id="menu">載入中...</div>
+<div class="tabs" id="tabs"></div>
+
+<div class="container" id="menu"></div>
 
 <div class="cart">
+  <div id="cartList"></div>
   <div id="total">總計 $0</div>
   <button class="checkout" onclick="checkout()">送出訂單</button>
 </div>
@@ -106,123 +40,148 @@ body {
 const API = "https://script.google.com/macros/s/AKfycby_6Tophx7nf583mQ5rkLTzIYrobzLx5iv03d6RyJaytJnUPlkc6RZm4buDbDeKdAKr/exec";   // ⭐必填 你的GAS網址
 const LIFF_ID = "2009489969-hNC94ctJ"; // ⭐必填 你的LIFF_ID
 
-let cart = [];
-let total = 0;
-let userId = "";
+
+let menuData = [];
+let cart = {};
 let storeId = "";
+let userId = "";
+let currentCategory = "";
 
 /******** 初始化 ********/
 async function init(){
-  try {
-    const params = new URLSearchParams(location.search);
-    storeId = params.get("storeId") || "STORE001";
+  const params = new URL(location.href);
+  storeId = params.searchParams.get("storeId") || "STORE001";
 
-    await liff.init({ liffId: LIFF_ID });
+  await liff.init({ liffId: LIFF_ID });
 
-    if (!liff.isLoggedIn()) {
-      liff.login();
-      return;
-    }
-
-    const profile = await liff.getProfile();
-    userId = profile.userId;
-
-    loadMenu();
-
-  } catch (e) {
-    document.getElementById("menu").innerHTML = "初始化錯誤";
-    console.error(e);
+  if (!liff.isLoggedIn()) {
+    liff.login();
+    return;
   }
+
+  const profile = await liff.getProfile();
+  userId = profile.userId;
+
+  loadMenu();
 }
 
 /******** 載入菜單 ********/
 async function loadMenu(){
-  try {
+  const res = await fetch(API,{
+    method:"POST",
+    body: JSON.stringify({action:"getMenu",storeId})
+  });
 
-    const res = await fetch(API,{
-      method:"POST",
-      body: JSON.stringify({
-        action:"getMenu",
-        storeId:storeId
-      })
-    });
+  const json = await res.json();
+  menuData = json.data || [];
 
-    const json = await res.json();
-    const data = json.data || [];   // ⭐修正重點
-
-    if (data.length === 0) {
-      document.getElementById("menu").innerHTML = "⚠️ 尚未設定菜單";
-      return;
-    }
-
-    let html = "";
-
-    data.forEach(i=>{
-
-      const img = i.image || "https://via.placeholder.com/60";
-
-      html += `
-        <div class="card">
-          <div class="item">
-            <div class="item-left">
-              <img src="${img}">
-              <div>
-                <div class="name">${i.name}</div>
-                <div class="price">$${i.price}</div>
-              </div>
-            </div>
-            <button class="btn" onclick="add('${i.name}',${i.price})">+</button>
-          </div>
-        </div>
-      `;
-    });
-
-    document.getElementById("menu").innerHTML = html;
-
-  } catch (e) {
-    document.getElementById("menu").innerHTML = "⚠️ 載入失敗";
-    console.error(e);
-  }
+  renderTabs();
+  renderMenu();
 }
 
-/******** 加入購物車 ********/
-function add(name, price){
-  cart.push({name,price});
-  total += price;
+/******** 分類 ********/
+function renderTabs(){
+  const categories = [...new Set(menuData.map(i=>i.category))];
+  currentCategory = categories[0];
+
+  let html="";
+  categories.forEach(c=>{
+    html += `<div class="tab ${c===currentCategory?'active':''}" onclick="switchTab('${c}')">${c}</div>`;
+  });
+
+  document.getElementById("tabs").innerHTML = html;
+}
+
+function switchTab(c){
+  currentCategory = c;
+  renderTabs();
+  renderMenu();
+}
+
+/******** 顯示菜單 ********/
+function renderMenu(){
+  let html="";
+  menuData.filter(i=>i.category===currentCategory).forEach(i=>{
+
+    const qty = cart[i.id]?.qty || 0;
+
+    html += `
+    <div class="card">
+      <div class="row">
+        <div>
+          <b>${i.name}</b><br>$${i.price}
+        </div>
+        <div class="qty">
+          <button onclick="minus('${i.id}')">-</button>
+          ${qty}
+          <button onclick="add('${i.id}','${i.name}',${i.price})">+</button>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  document.getElementById("menu").innerHTML = html;
+  renderCart();
+}
+
+/******** 加減 ********/
+function add(id,name,price){
+  if(!cart[id]) cart[id]={name,price,qty:0};
+  cart[id].qty++;
+  renderMenu();
+}
+
+function minus(id){
+  if(!cart[id]) return;
+  cart[id].qty--;
+  if(cart[id].qty<=0) delete cart[id];
+  renderMenu();
+}
+
+/******** 購物車 ********/
+function renderCart(){
+  let total=0, html="";
+
+  Object.values(cart).forEach(i=>{
+    total += i.price * i.qty;
+    html += `${i.name} x${i.qty} = $${i.price*i.qty}<br>`;
+  });
+
+  if(html==="") html="尚未選擇商品";
+
+  document.getElementById("cartList").innerHTML = html;
   document.getElementById("total").innerText = "總計 $" + total;
 }
 
 /******** 送出訂單 ********/
 async function checkout(){
 
-  if(cart.length === 0){
+  const items = Object.values(cart);
+
+  if(items.length===0){
     alert("請先選擇商品");
     return;
   }
 
-  try {
+  let total = items.reduce((s,i)=>s+i.price*i.qty,0);
 
-    await fetch(API,{
-      method:"POST",
-      body: JSON.stringify({
-        action:"createOrder",
-        storeId:storeId,
-        userId:userId,
-        items:cart,
-        total:total
-      })
-    });
+  if(!confirm("確認送出訂單？")) return;
 
-    alert("訂單完成！");
+  await fetch(API,{
+    method:"POST",
+    body: JSON.stringify({
+      action:"createOrder",
+      storeId,
+      userId,
+      items,
+      total
+    })
+  });
 
-    cart = [];
-    total = 0;
-    document.getElementById("total").innerText = "總計 $0";
+  alert("訂單完成 🎉");
 
-  } catch (e) {
-    alert("送單失敗");
-    console.error(e);
-  }
+  cart = {};
+  renderMenu();
 }
 
 init();
