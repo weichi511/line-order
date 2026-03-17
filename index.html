@@ -67,21 +67,31 @@ async function init(){
 
 /******** 載入菜單 ********/
 async function loadMenu(){
-  const res = await fetch(API,{
-    method:"POST",
-    body: JSON.stringify({action:"getMenu",storeId})
-  });
+  try{
+    const res = await fetch(API,{
+      method:"POST",
+      body: JSON.stringify({action:"getMenu",storeId})
+    });
 
-  const json = await res.json();
-  menuData = json.data || [];
+    const json = await res.json();
 
-  if(menuData.length === 0){
-    document.getElementById("menu").innerHTML = "<div class='empty'>⚠️ 尚未設定菜單</div>";
-    return;
+    console.log("API回傳:", json);
+
+    // 🔥 關鍵修正（雙相容）
+    menuData = json.data || json || [];
+
+    if(menuData.length === 0){
+      document.getElementById("menu").innerHTML = "<div class='empty'>⚠️ 沒有菜單資料</div>";
+      return;
+    }
+
+    renderTabs();
+    renderMenu();
+
+  }catch(err){
+    console.error(err);
+    document.getElementById("menu").innerHTML = "<div class='empty'>❌ API錯誤</div>";
   }
-
-  renderTabs();
-  renderMenu();
 }
 
 /******** 分類 ********/
