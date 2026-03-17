@@ -95,7 +95,7 @@ body {
 
 <div class="header">🍱 點餐系統</div>
 
-<div class="container" id="menu"></div>
+<div class="container" id="menu">載入中...</div>
 
 <div class="cart">
   <div id="total">總計 $0</div>
@@ -103,8 +103,8 @@ body {
 </div>
 
 <script>
-const API = "你的GAS網址";
-const LIFF_ID = "你的LIFF_ID";
+const API = "https://script.google.com/macros/s/AKfycbw1yz6jiMFhqVGy71c5NpKpEuWwQYmXnnw75zse6PYUZjpuJP3K4hFULi-1wqumZSDh/exec";   // ⭐必填 你的GAS網址
+const LIFF_ID = "2009489969-hNC94ctJ"; // ⭐必填 你的LIFF_ID
 
 let cart = [];
 let total = 0;
@@ -113,61 +113,76 @@ let storeId = "";
 
 /******** 初始化 ********/
 async function init(){
+  try {
+    const params = new URLSearchParams(location.search);
+    storeId = params.get("storeId") || "STORE001";
 
-  // 取得 storeId
-  const params = new URLSearchParams(location.search);
-  storeId = params.get("storeId") || "STORE001";
+    await liff.init({ liffId: LIFF_ID });
 
-  // LIFF
-  await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) {
+      liff.login();
+      return;
+    }
 
-  if (!liff.isLoggedIn()) {
-    liff.login();
-    return;
+    const profile = await liff.getProfile();
+    userId = profile.userId;
+
+    loadMenu();
+
+  } catch (e) {
+    document.getElementById("menu").innerHTML = "初始化錯誤";
+    console.error(e);
   }
-
-  const profile = await liff.getProfile();
-  userId = profile.userId;
-
-  loadMenu();
 }
 
 /******** 載入菜單 ********/
 async function loadMenu(){
+  try {
 
-  const res = await fetch(API,{
-    method:"POST",
-    body: JSON.stringify({
-      action:"getMenu",
-      storeId:storeId
-    })
-  });
+    const res = await fetch(API,{
+      method:"POST",
+      body: JSON.stringify({
+        action:"getMenu",
+        storeId:storeId
+      })
+    });
 
-  const data = await res.json();
+    const json = await res.json();
+    const data = json.data || [];   // ⭐修正重點
 
-  let html = "";
+    if (data.length === 0) {
+      document.getElementById("menu").innerHTML = "⚠️ 尚未設定菜單";
+      return;
+    }
 
-  data.forEach(i=>{
+    let html = "";
 
-    const img = i.image || "https://via.placeholder.com/60";
+    data.forEach(i=>{
 
-    html += `
-      <div class="card">
-        <div class="item">
-          <div class="item-left">
-            <img src="${img}">
-            <div>
-              <div class="name">${i.name}</div>
-              <div class="price">$${i.price}</div>
+      const img = i.image || "https://via.placeholder.com/60";
+
+      html += `
+        <div class="card">
+          <div class="item">
+            <div class="item-left">
+              <img src="${img}">
+              <div>
+                <div class="name">${i.name}</div>
+                <div class="price">$${i.price}</div>
+              </div>
             </div>
+            <button class="btn" onclick="add('${i.name}',${i.price})">+</button>
           </div>
-          <button class="btn" onclick="add('${i.name}',${i.price})">+</button>
         </div>
-      </div>
-    `;
-  });
+      `;
+    });
 
-  document.getElementById("menu").innerHTML = html;
+    document.getElementById("menu").innerHTML = html;
+
+  } catch (e) {
+    document.getElementById("menu").innerHTML = "⚠️ 載入失敗";
+    console.error(e);
+  }
 }
 
 /******** 加入購物車 ********/
@@ -185,22 +200,29 @@ async function checkout(){
     return;
   }
 
-  await fetch(API,{
-    method:"POST",
-    body: JSON.stringify({
-      action:"createOrder",
-      storeId:storeId,
-      userId:userId,
-      items:cart,
-      total:total
-    })
-  });
+  try {
 
-  alert("訂單完成！");
+    await fetch(API,{
+      method:"POST",
+      body: JSON.stringify({
+        action:"createOrder",
+        storeId:storeId,
+        userId:userId,
+        items:cart,
+        total:total
+      })
+    });
 
-  cart = [];
-  total = 0;
-  document.getElementById("total").innerText = "總計 $0";
+    alert("訂單完成！");
+
+    cart = [];
+    total = 0;
+    document.getElementById("total").innerText = "總計 $0";
+
+  } catch (e) {
+    alert("送單失敗");
+    console.error(e);
+  }
 }
 
 init();
