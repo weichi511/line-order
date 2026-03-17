@@ -20,6 +20,7 @@ body{margin:0;font-family:sans-serif;background:#f5f6fa}
 .cart{position:fixed;bottom:0;width:100%;background:#fff;padding:10px;border-top:1px solid #ddd}
 .checkout{background:#ff6b6b;color:#fff;border:none;padding:10px 14px;border-radius:6px}
 .empty{color:#999;text-align:center;padding:20px}
+.loading{text-align:center;padding:20px;color:#666}
 </style>
 </head>
 
@@ -29,16 +30,18 @@ body{margin:0;font-family:sans-serif;background:#f5f6fa}
 
 <div class="tabs" id="tabs"></div>
 
-<div class="container" id="menu"></div>
+<div class="container" id="menu">
+  <div class="loading">載入中...</div>
+</div>
 
 <div class="cart">
-  <div id="cartList"></div>
+  <div id="cartList">尚未選擇商品</div>
   <div id="total">總計 $0</div>
   <button class="checkout" onclick="checkout()">送出訂單</button>
 </div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbwPR1_zr2kpo1uElSOuPof4yseqBcZjBSsXxx4OzaWoFGz2Rs-31WR69gVkRXzU09RC/exec";
+const API = "https://script.google.com/macros/s/AKfycbwVkpidp2cO7J9yJTlLhcDkJu7sODz-1lGOCVy0sZWLZXu7MqySNSFUqu9dp-JdX7pP/exec";
 const LIFF_ID = "2009489969-hNC94ctJ";
 
 let menuData = [];
@@ -49,20 +52,27 @@ let currentCategory = "";
 
 /******** 初始化 ********/
 async function init(){
-  const params = new URL(location.href);
-  storeId = params.searchParams.get("storeId") || "STORE001";
+  try{
+    const params = new URL(location.href);
+    storeId = params.searchParams.get("storeId") || "STORE001";
 
-  await liff.init({ liffId: LIFF_ID });
+    await liff.init({ liffId: LIFF_ID });
 
-  if (!liff.isLoggedIn()) {
-    liff.login();
-    return;
+    if (!liff.isLoggedIn()) {
+      liff.login();
+      return;
+    }
+
+    const profile = await liff.getProfile();
+    userId = profile.userId;
+
+    loadMenu();
+
+  }catch(err){
+    console.error(err);
+    document.getElementById("menu").innerHTML =
+      "<div class='empty'>❌ LIFF初始化失敗</div>";
   }
-
-  const profile = await liff.getProfile();
-  userId = profile.userId;
-
-  loadMenu();
 }
 
 /******** 載入菜單 ********/
@@ -70,6 +80,9 @@ async function loadMenu(){
   try{
     const res = await fetch(API,{
       method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
       body: JSON.stringify({action:"getMenu",storeId})
     });
 
@@ -77,11 +90,11 @@ async function loadMenu(){
 
     console.log("API回傳:", json);
 
-    // 🔥 關鍵修正（雙相容）
     menuData = json.data || json || [];
 
-    if(menuData.length === 0){
-      document.getElementById("menu").innerHTML = "<div class='empty'>⚠️ 沒有菜單資料</div>";
+    if(!Array.isArray(menuData) || menuData.length === 0){
+      document.getElementById("menu").innerHTML =
+        "<div class='empty'>⚠️ 沒有菜單資料</div>";
       return;
     }
 
@@ -90,7 +103,8 @@ async function loadMenu(){
 
   }catch(err){
     console.error(err);
-    document.getElementById("menu").innerHTML = "<div class='empty'>❌ API錯誤</div>";
+    document.getElementById("menu").innerHTML =
+      "<div class='empty'>❌ API錯誤</div>";
   }
 }
 
@@ -98,14 +112,22 @@ async function loadMenu(){
 function renderTabs(){
 
   const categories = [...new Set(
-    menuData.map(i => (i.category || "").trim())
+    menuData
+      .map(i => (i.category || "").trim())
+      .filter(c => c !== "")
   )];
 
-  currentCategory = categories[0];
+  if(categories.length === 0){
+    document.getElementById("tabs").innerHTML = "";
+    return;
+  }
+
+  currentCategory = currentCategory || categories[0];
 
   let html="";
   categories.forEach(c=>{
-    html += `<div class="tab ${c===currentCategory?'active':''}" onclick="switchTab('${c}')">${c}</div>`;
+    html += `<div class="tab ${c===currentCategory?'active':''}" 
+      onclick="switchTab(${JSON.stringify(c)})">${c}</div>`;
   });
 
   document.getElementById("tabs").innerHTML = html;
@@ -119,32 +141,35 @@ function switchTab(c){
 
 /******** 顯示菜單 ********/
 function renderMenu(){
+
   let html="";
-  // 確保比對時兩邊都去除了空白，並處理可能為空值的情況
+
   const list = menuData.filter(i =>
     (i.category || "").trim() === (currentCategory || "").trim()
   );
-  
+
   if(list.length === 0){
-    html = "<div class='empty'> ⚠️ 此分類沒有商品</div>";
+    html = "<div class='empty'>⚠️ 此分類沒有商品</div>";
   } else {
     list.forEach(i=>{
       const qty = cart[i.id]?.qty || 0;
+
       html += `
         <div class="card">
           <div class="row">
             <div>
-              <b>${i.name}</b><br>$${i.price}
+              <b>${i.name}</b><br>$${Number(i.price) || 0}
             </div>
             <div class="qty">
               <button onclick="minus('${i.id}')">-</button>
               ${qty}
-              <button onclick="add('${i.id}','${i.name}',${i.price})">+</button>
+              <button onclick="add('${i.id}',${JSON.stringify(i.name)},${Number(i.price)})">+</button>
             </div>
           </div>
         </div>`;
     });
   }
+
   document.getElementById("menu").innerHTML = html;
   renderCart();
 }
@@ -193,21 +218,30 @@ async function checkout(){
 
   if(!confirm("確認送出訂單？")) return;
 
-  await fetch(API,{
-    method:"POST",
-    body: JSON.stringify({
-      action:"createOrder",
-      storeId,
-      userId,
-      items,
-      total
-    })
-  });
+  try{
+    await fetch(API,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body: JSON.stringify({
+        action:"createOrder",
+        storeId,
+        userId,
+        items,
+        total
+      })
+    });
 
-  alert("訂單完成 🎉");
+    alert("訂單完成 🎉");
 
-  cart = {};
-  renderMenu();
+    cart = {};
+    renderMenu();
+
+  }catch(err){
+    alert("❌ 訂單送出失敗");
+    console.error(err);
+  }
 }
 
 init();
