@@ -78,21 +78,32 @@ async function init(){
 /******** 載入菜單 ********/
 async function loadMenu(){
   try{
+
     const res = await fetch(API,{
       method:"POST",
       headers:{
         "Content-Type":"application/json"
       },
-      body: JSON.stringify({action:"getMenu",storeId})
+      body: JSON.stringify({
+        apiKey: "WEICHI_SAAS_2026", // ⭐ 新增
+        action:"getMenu",
+        storeId
+      })
     });
 
     const json = await res.json();
 
     console.log("API回傳:", json);
 
-    menuData = json.data || json || [];
+    if(json.status !== "ok"){
+      document.getElementById("menu").innerHTML =
+        "<div class='empty'>❌ " + (json.message || "API錯誤") + "</div>";
+      return;
+    }
 
-    if(!Array.isArray(menuData) || menuData.length === 0){
+    menuData = Array.isArray(json.data) ? json.data : [];
+
+    if(menuData.length === 0){
       document.getElementById("menu").innerHTML =
         "<div class='empty'>⚠️ 沒有菜單資料</div>";
       return;
@@ -107,7 +118,6 @@ async function loadMenu(){
       "<div class='empty'>❌ API錯誤</div>";
   }
 }
-
 /******** 分類 ********/
 function renderTabs(){
 
