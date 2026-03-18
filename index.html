@@ -242,29 +242,45 @@ async function checkout(){
 
   let total = items.reduce((s,i)=>s+i.price*i.qty,0);
 
+  const method = prompt("付款方式：輸入 CASH / LINEPAY");
+
+  if(!method) return;
+
   if(!confirm("確認送出訂單？")) return;
 
   try{
 
-    await callAPI({
+    const res = await callAPI({
       action:"createOrder",
       storeId,
       userId,
       items,
-      total
+      total,
+      paymentMethod: method
     });
 
-    alert("訂單完成 🎉");
+    if(method === "LINEPAY"){
+      // 👉 這裡未來串 LINE Pay
+      alert("即將跳轉 LINE Pay（未實作）");
+    }else{
+      alert("訂單完成（現金付款）");
+    }
 
     cart = {};
     renderMenu();
 
   }catch(err){
     alert("❌ " + err.message);
-    console.error(err);
   }
 }
 
+
+
+
+
+
+
+  
 init();
 </script>
 
