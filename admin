@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>店家後台</title>
+
+<style>
+body{font-family:sans-serif;margin:0;background:#f5f6fa}
+.header{background:#222;color:#fff;padding:15px;text-align:center}
+.order{background:#fff;margin:10px;padding:10px;border-radius:8px}
+.item{font-size:14px;margin:3px 0}
+.status{margin-top:10px}
+button{margin-right:5px;padding:5px 10px;border:none;border-radius:5px}
+.new{background:#ffa502}
+.doing{background:#1e90ff;color:#fff}
+.done{background:#2ed573;color:#fff}
+</style>
+
+</head>
+
+<body>
+
+<div class="header">📦 訂單後台</div>
+
+<div id="orders">載入中...</div>
+
+<script>
+const API = "https://script.google.com/macros/s/你的GAS_URL/exec";
+const API_KEY = "WEICHI_SAAS_2026";
+
+let storeId = new URL(location.href).searchParams.get("storeId") || "STORE001";
+
+async function callAPI(payload){
+  const res = await fetch(API,{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({
+      apiKey: API_KEY,
+      ...payload
+    })
+  });
+
+  return res.json();
+}
+
+/******** 載入訂單 ********/
+async function loadOrders(){
+
+  const res = await callAPI({
+    action:"getOrders",
+    storeId
+  });
+
+  const list = res.data || [];
+
+  if(list.length === 0){
+    document.getElementById("orders").innerHTML = "目前沒有訂單";
+    return;
+  }
+
+  let html = "";
+
+  list.forEach(o=>{
+
+    let items = JSON.parse(o.items || "[]");
+
+    let itemHTML = "";
+    items.forEach(i=>{
+      itemHTML += `<div class="item">${i.name} x${i.qty}</div>`;
+    });
+
+    html += `
+      <div class="order">
+        <div>🕒 ${o.time}</div>
+        ${itemHTML}
+        <div>💰 $${o.total}</div>
+
+        <div class="status">
+          <button class="new" onclick="update('${o.orderId}','NEW')">新單</button>
+          <button class="doing" onclick="update('${o.orderId}','DOING')">製作中</button>
+          <button class="done" onclick="update('${o.orderId}','DONE')">完成</button>
+        </div>
+      </div>
+    `;
+  });
+
+  document.getElementById("orders").innerHTML = html;
+}
+
+/******** 更新狀態 ********/
+async function update(orderId,status){
+
+  await callAPI({
+    action:"updateOrderStatus",
+    storeId,
+    orderId,
+    status
+  });
+
+  loadOrders();
+}
+
+/******** 自動刷新 ********/
+setInterval(loadOrders,5000);
+
+loadOrders();
+</script>
+
+</body>
+</html>
