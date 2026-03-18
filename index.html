@@ -117,36 +117,25 @@ function loadMenu(){
   fetch(API, {
     method: "POST",
     body: JSON.stringify({
-      action: "getMenu"
+      action: "getMenu",
+      storeId: "default" // ⚠️ 你現在一定要帶
     })
   })
   .then(res => res.json())
   .then(res => {
 
-    // ✅ SaaS標準格式
-    if(res.status === "ok"){
+    console.log("API回傳:", res); // 🔥 先看真實資料
+
+    // ✅ 標準格式
+    if(res.status === "ok" && Array.isArray(res.data)){
       window.MENU_DATA = res.data;
       renderMenu(window.MENU_DATA);
       return;
     }
 
-    // ✅ 舊版：直接回 array
-    if(Array.isArray(res)){
-      window.MENU_DATA = res;
-      renderMenu(window.MENU_DATA);
-      return;
-    }
-
-    // ✅ 半標準：{data:[]}
-    if(res.data && Array.isArray(res.data)){
-      window.MENU_DATA = res.data;
-      renderMenu(window.MENU_DATA);
-      return;
-    }
-
-    // ❌ 全部不符合
-    console.error("API錯誤格式", res);
+    // ❌ 錯誤格式
     alert("菜單格式錯誤");
+    console.error("錯誤資料:", res);
 
   })
   .catch(err=>{
@@ -154,7 +143,6 @@ function loadMenu(){
     alert("API錯誤");
   });
 }
-
 /************************************************
  * 🚀 送出訂單（簡化版）
  ************************************************/
