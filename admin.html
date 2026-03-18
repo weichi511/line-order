@@ -80,17 +80,25 @@ async function callAPI(payload){
     throw new Error("未登入");
   }
 
+  const formData = new FormData();
+  formData.append("data", JSON.stringify({
+    token,
+    storeId,
+    ...payload
+  }));
+
   const res = await fetch(API,{
     method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({
-      token,
-      storeId,
-      ...payload
-    })
+    body: formData
   });
 
-  const json = await res.json();
+  const text = await res.text();
+
+  if(!text){
+    throw new Error("EMPTY RESPONSE");
+  }
+
+  const json = JSON.parse(text);
 
   if(json.status !== "ok"){
     throw new Error(json.message || "API錯誤");
