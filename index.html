@@ -64,20 +64,19 @@ async function callAPI(payload){
     const res = await fetch(API,{
       method:"POST",
       headers:{
-        "Content-Type":"application/json"
+        "Content-Type":"text/plain;charset=utf-8" // 🔥 關鍵（避開 preflight）
       },
       body: JSON.stringify(payload)
     });
 
-    // 🔥 防止空回應
     if(!res.ok){
-      throw new Error("Network response error: " + res.status);
+      throw new Error("HTTP " + res.status);
     }
 
     const text = await res.text();
 
     if(!text){
-      throw new Error("Empty response");
+      throw new Error("EMPTY RESPONSE");
     }
 
     let json;
@@ -85,17 +84,17 @@ async function callAPI(payload){
     try{
       json = JSON.parse(text);
     }catch(e){
-      throw new Error("Invalid JSON: " + text);
+      throw new Error("INVALID JSON → " + text);
     }
 
     if(json.status !== "ok"){
-      throw new Error(json.message || "API error");
+      throw new Error(json.message || "API ERROR");
     }
 
     return json;
 
   }catch(err){
-    throw new Error("API FAIL: " + err.message);
+    throw new Error("FETCH FAIL → " + err.message);
   }
 }
 
