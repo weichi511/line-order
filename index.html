@@ -39,7 +39,7 @@ ENV（重要）
 **********************/
 const ENV = {
   dev: { API: "DEV_GAS_URL" },
-  prod: { API: "https://script.google.com/macros/s/AKfycbyFW8IW_cE16vXYcTJCKImV4zPotprVhbiPeAIFPzyYgN0v6EJ_e4379dgAqkYaTAbl/exec" }
+  prod: { API: "https://script.google.com/macros/s/AKfycbwLngxpcRSUIGo5uol7cBvnDDzyH_cWIX-wJGfahxdU5hFtD6ebnhpkiIdUewTtgl1d/exec" }
 };
 
 const MODE = "prod";
@@ -59,43 +59,29 @@ let userId = "guest_"+Date.now();
 **********************/
 async function callAPI(payload){
 
-  try{
+  const url = API + "?t=" + Date.now();
 
-    const res = await fetch(API,{
-      method:"POST",
-      headers:{
-        "Content-Type":"text/plain;charset=utf-8" // 🔥 關鍵（避開 preflight）
-      },
-      body: JSON.stringify(payload)
-    });
+  const formData = new FormData();
+  formData.append("data", JSON.stringify(payload));
 
-    if(!res.ok){
-      throw new Error("HTTP " + res.status);
-    }
+  const res = await fetch(url,{
+    method:"POST",
+    body: formData
+  });
 
-    const text = await res.text();
+  const text = await res.text();
 
-    if(!text){
-      throw new Error("EMPTY RESPONSE");
-    }
-
-    let json;
-
-    try{
-      json = JSON.parse(text);
-    }catch(e){
-      throw new Error("INVALID JSON → " + text);
-    }
-
-    if(json.status !== "ok"){
-      throw new Error(json.message || "API ERROR");
-    }
-
-    return json;
-
-  }catch(err){
-    throw new Error("FETCH FAIL → " + err.message);
+  if(!text){
+    throw new Error("EMPTY RESPONSE");
   }
+
+  const json = JSON.parse(text);
+
+  if(json.status !== "ok"){
+    throw new Error(json.message);
+  }
+
+  return json;
 }
 
 /**********************
