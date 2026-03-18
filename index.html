@@ -88,31 +88,46 @@ async function init(){
 
     const res = await fetch(url, {
       method: "GET",
-      mode: "cors",        // 🔥 強制 CORS
-      cache: "no-store"    // 🔥 避免快取
+      mode: "no-cors"   // 🔥 關鍵
     });
 
-    if(!res.ok){
-      throw new Error("HTTP " + res.status);
-    }
+    // ⚠️ no-cors 不能直接讀 JSON
+    // 👉 改 fallback 用 iframe 方式 or 改 POST
 
-    const json = await res.json();
-
-    if(json.status !== "ok"){
-      throw new Error(json.message);
-    }
-
-    menuData = json.data;
-    renderMenu();
+    throw new Error("no-cors 模式下無法讀資料 → 必須改 POST");
 
   }catch(err){
-    console.error(err);
 
-    document.body.innerHTML = `
-      ❌ 初始化失敗<br>
-      ${err.message}<br><br>
-      👉 API: ${API}
-    `;
+    // 🔥 fallback 用 POST（穩定）
+    try{
+
+      const res = await fetch(API,{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json"
+        },
+        body: JSON.stringify({
+          action:"getMenu",
+          storeId
+        })
+      });
+
+      const json = await res.json();
+
+      if(json.status !== "ok"){
+        throw new Error(json.message);
+      }
+
+      menuData = json.data;
+      renderMenu();
+
+    }catch(e){
+
+      document.body.innerHTML = `
+        ❌ 初始化失敗<br>
+        ${e.message}
+      `;
+    }
   }
 }
 
