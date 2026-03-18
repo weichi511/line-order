@@ -126,7 +126,7 @@ async function login(){
     const json = await res.json();
 
     if(json.status !== "ok"){
-      alert("登入失敗");
+      alert("❌ " + json.message); // ⭐ 修正
       return;
     }
 
@@ -136,7 +136,7 @@ async function login(){
     enterMain();
 
   }catch(err){
-    alert("❌ 登入錯誤");
+    alert("❌ " + err.message);
   }
 }
 
