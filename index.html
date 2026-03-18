@@ -55,23 +55,49 @@ let userId = "guest_"+Date.now();
 /**********************
 🔥 API（統一）
 **********************/
-async function callAPI(payload){
-
-  const res = await fetch(API,{
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json"
-    },
-    body: JSON.stringify(payload)
-  });
-
-  const json = await res.json();
-
-  if(json.status !== "ok"){
-    throw new Error(json.message);
+// ✅ 替換 index.html 中的 callAPI 函數
+async function callAPI(params) {
+  const API_URL = ENV[MODE].API; // 請確保此處 URL 包含 /exec 結尾
+  
+  if (!API_URL || API_URL.includes("YOUR_GAS_URL")) {
+    console.error("❌ API URL 未設定或格式錯誤");
+    throw new Error("系統設定錯誤，請聯絡管理員");
   }
 
-  return json;
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      mode: "cors", // 強制開啟 CORS
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8", // GAS 接收端建議用 text/plain 避免 preflight 問題
+      },
+      body: JSON.stringify({
+        ...params,
+        storeId: STORE_ID, // 確保帶入商用 ID
+        token: localStorage.getItem("token")
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    if (result.status === "error") {
+      throw new Error(result.message);
+    }
+    return result.data;
+
+  } catch (err) {
+    console.error("📡 API 請求細節報錯:", err);
+    // 針對 Failed to fetch 的具體診斷
+    if (err.message === "Failed to fetch") {
+      alert("❌ 連線失敗：請檢查網路，或確認 GAS 部署是否設為「所有人」存取");
+    } else {
+      alert("❌ 系統錯誤：" + err.message);
+    }
+    throw err;
+  }
 }
 
 /**********************
