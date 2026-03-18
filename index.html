@@ -77,57 +77,33 @@ async function callAPI(payload){
 /**********************
 初始化
 **********************/
+/**********************
+初始化（修正版）
+**********************/
 async function init(){
 
   try{
 
+    // ❗ 不可信任 URL storeId（先保留，但未來要後端驗證）
     const params = new URLSearchParams(location.search);
     storeId = params.get("storeId") || "STORE001";
 
-    const url = `${API}?action=getMenu&storeId=${storeId}&t=${Date.now()}`;
-
-    const res = await fetch(url, {
-      method: "GET",
-      mode: "no-cors"   // 🔥 關鍵
+    // ✅ 統一走 POST
+    const res = await callAPI({
+      action: "getMenu",
+      storeId
     });
 
-    // ⚠️ no-cors 不能直接讀 JSON
-    // 👉 改 fallback 用 iframe 方式 or 改 POST
+    menuData = res.data || [];
 
-    throw new Error("no-cors 模式下無法讀資料 → 必須改 POST");
+    renderMenu();
 
   }catch(err){
 
-    // 🔥 fallback 用 POST（穩定）
-    try{
-
-      const res = await fetch(API,{
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json"
-        },
-        body: JSON.stringify({
-          action:"getMenu",
-          storeId
-        })
-      });
-
-      const json = await res.json();
-
-      if(json.status !== "ok"){
-        throw new Error(json.message);
-      }
-
-      menuData = json.data;
-      renderMenu();
-
-    }catch(e){
-
-      document.body.innerHTML = `
-        ❌ 初始化失敗<br>
-        ${e.message}
-      `;
-    }
+    document.body.innerHTML = `
+      ❌ 初始化失敗<br>
+      ${err.message}
+    `;
   }
 }
 
