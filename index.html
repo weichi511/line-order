@@ -66,9 +66,10 @@ async function callAPI(payload){
   const res = await fetch(API,{
     method:"POST",
     headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({
-      apiKey:"WEICHI_SAAS_2026",
-      ...payload
+  body: JSON.stringify({
+  token: "這間店的token",
+  ...payload
+})
     })
   });
 
