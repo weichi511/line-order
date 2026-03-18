@@ -22,6 +22,7 @@ body{margin:0;font-family:sans-serif;background:#f5f6fa}
 .empty{color:#999;text-align:center;padding:20px}
 .loading{text-align:center;padding:20px;color:#666}
 </style>
+
 </head>
 
 <body>
@@ -40,16 +41,33 @@ body{margin:0;font-family:sans-serif;background:#f5f6fa}
 </div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbwVkpidp2cO7J9yJTlLhcDkJu7sODz-1lGOCVy0sZWLZXu7MqySNSFUqu9dp-JdX7pP/exec";
+
+/**********************
+🔧 ENV 控制（強制）
+**********************/
+const ENV = {
+  dev: { API: "DEV_GAS_URL" },
+  prod: { API: "https://script.google.com/macros/s/AKfycbwVkpidp2cO7J9yJTlLhcDkJu7sODz-1lGOCVy0sZWLZXu7MqySNSFUqu9dp-JdX7pP/exec" }
+};
+
+const MODE = "prod";
+const API = ENV[MODE].API;
+const VERSION = "1.0.5";
+
 const LIFF_ID = "2009489969-hNC94ctJ";
 
+/**********************
+🔒 狀態
+**********************/
 let menuData = [];
 let cart = {};
 let storeId = "";
 let userId = "";
 let currentCategory = "";
 
-/******** XSS 防護 ********/
+/**********************
+🔐 XSS 防護
+**********************/
 function escapeHTML(str){
   return String(str).replace(/[&<>"']/g, m => ({
     "&":"&amp;",
@@ -60,10 +78,12 @@ function escapeHTML(str){
   }[m]));
 }
 
-/******** 統一 API（token + storeId） ********/
+/**********************
+🌐 API
+**********************/
 async function callAPI(payload){
 
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("token") || "";
 
   const res = await fetch(API,{
     method:"POST",
@@ -84,11 +104,20 @@ async function callAPI(payload){
   return json;
 }
 
-/******** 初始化 ********/
+/**********************
+🚀 初始化
+**********************/
 async function init(){
+
   try{
+
+    // ⚠️ storeId 不可信 → 只做傳遞
     const params = new URL(location.href);
-    storeId = params.searchParams.get("storeId") || "STORE001";
+    storeId = params.searchParams.get("storeId") || "";
+
+    if(!storeId){
+      throw new Error("缺少 storeId");
+    }
 
     await liff.init({ liffId: LIFF_ID });
 
@@ -105,22 +134,27 @@ async function init(){
   }catch(err){
     console.error(err);
     document.getElementById("menu").innerHTML =
-      "<div class='empty'>❌ LIFF初始化失敗</div>";
+      "<div class='empty'>❌ 初始化失敗</div>";
   }
 }
 
-/******** 載入菜單 ********/
+/**********************
+📦 菜單
+**********************/
 async function loadMenu(){
+
   try{
+
     const json = await callAPI({
-      action:"getMenu"
+      action:"getMenu",
+      userId
     });
 
     menuData = Array.isArray(json.data) ? json.data : [];
 
     if(menuData.length === 0){
       document.getElementById("menu").innerHTML =
-        "<div class='empty'>⚠️ 沒有菜單資料</div>";
+        "<div class='empty'>⚠️ 沒有菜單</div>";
       return;
     }
 
@@ -128,27 +162,24 @@ async function loadMenu(){
     renderMenu();
 
   }catch(err){
-    console.error(err);
     document.getElementById("menu").innerHTML =
       "<div class='empty'>❌ "+ err.message +"</div>";
   }
 }
 
-/******** 分類 ********/
+/**********************
+📂 分類
+**********************/
 function renderTabs(){
 
   const categories = [...new Set(
-    menuData.map(i => (i.category || "").trim()).filter(c => c)
+    menuData.map(i => (i.category || "").trim()).filter(Boolean)
   )];
-
-  if(categories.length === 0){
-    document.getElementById("tabs").innerHTML = "";
-    return;
-  }
 
   if(!currentCategory) currentCategory = categories[0];
 
   let html="";
+
   categories.forEach(c=>{
     html += `<div class="tab ${c===currentCategory?'active':''}" 
       onclick="switchTab(${JSON.stringify(c)})">${escapeHTML(c)}</div>`;
@@ -163,34 +194,38 @@ function switchTab(c){
   renderMenu();
 }
 
-/******** 顯示菜單 ********/
+/**********************
+🍱 菜單顯示
+**********************/
 function renderMenu(){
+
+  const list = menuData.filter(i =>
+    (i.category || "").trim() === currentCategory
+  );
 
   let html="";
 
-  const list = menuData.filter(i =>
-    (i.category || "").trim() === (currentCategory || "").trim()
-  );
-
   if(list.length === 0){
-    html = "<div class='empty'>⚠️ 此分類沒有商品</div>";
-  } else {
+    html = "<div class='empty'>⚠️ 此分類無商品</div>";
+  }else{
     list.forEach(i=>{
+
       const qty = cart[i.id]?.qty || 0;
 
       html += `
-        <div class="card">
-          <div class="row">
-            <div>
-              <b>${escapeHTML(i.name)}</b><br>$${Number(i.price) || 0}
-            </div>
-            <div class="qty">
-              <button onclick="minus('${i.id}')">-</button>
-              ${qty}
-              <button onclick="add('${i.id}',${JSON.stringify(i.name)},${Number(i.price)})">+</button>
-            </div>
+      <div class="card">
+        <div class="row">
+          <div>
+            <b>${escapeHTML(i.name)}</b><br>
+            $${Number(i.price)||0}
           </div>
-        </div>`;
+          <div class="qty">
+            <button onclick="minus('${i.id}')">-</button>
+            ${qty}
+            <button onclick="add('${i.id}',${JSON.stringify(i.name)},${Number(i.price)})">+</button>
+          </div>
+        </div>
+      </div>`;
     });
   }
 
@@ -198,7 +233,9 @@ function renderMenu(){
   renderCart();
 }
 
-/******** 加減 ********/
+/**********************
+➕➖ 購物
+**********************/
 function add(id,name,price){
   if(!cart[id]) cart[id]={name,price,qty:0};
   cart[id].qty++;
@@ -212,7 +249,9 @@ function minus(id){
   renderMenu();
 }
 
-/******** 購物車 ********/
+/**********************
+🧾 購物車
+**********************/
 function renderCart(){
 
   let total=0, html="";
@@ -228,25 +267,24 @@ function renderCart(){
   document.getElementById("total").innerText = "總計 $" + total;
 }
 
-/******** 送出訂單 ********/
+/**********************
+💳 結帳
+**********************/
 async function checkout(){
 
   const items = Object.values(cart);
 
   if(items.length===0){
-    alert("請先選擇商品");
+    alert("請選商品");
     return;
   }
 
   if(!userId){
-    alert("請重新登入 LINE");
+    alert("請重新登入");
     return;
   }
 
-  let total = items.reduce((s,i)=>s+i.price*i.qty,0);
-
-  // ✅ 改 UI（取代 prompt）
-  const method = confirm("按確定 = LINEPAY\n按取消 = 現金") ? "LINEPAY" : "CASH";
+  const method = confirm("確定=LINEPAY / 取消=現金") ? "LINEPAY" : "CASH";
 
   if(!confirm("確認送出訂單？")) return;
 
@@ -256,15 +294,11 @@ async function checkout(){
       action:"createOrder",
       userId,
       items,
-      total,
+      total: items.reduce((s,i)=>s+i.price*i.qty,0),
       paymentMethod: method
     });
 
-    if(method === "LINEPAY"){
-      alert("即將跳轉 LINE Pay（未實作）");
-    }else{
-      alert("訂單完成（現金付款）");
-    }
+    alert("✅ 訂單成功");
 
     cart = {};
     renderMenu();
@@ -275,6 +309,7 @@ async function checkout(){
 }
 
 init();
+
 </script>
 
 </body>
