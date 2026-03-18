@@ -11,12 +11,15 @@ body{font-family:sans-serif;margin:0;background:#f5f6fa}
 .order{background:#fff;margin:10px;padding:10px;border-radius:8px}
 .item{font-size:14px;margin:3px 0}
 .status{margin-top:10px}
-button{margin-right:5px;padding:5px 10px;border:none;border-radius:5px}
-.new{background:#ffa502}
-.doing{background:#1e90ff;color:#fff}
+button{margin-right:5px;padding:6px 10px;border:none;border-radius:5px;cursor:pointer}
+.pending{background:#ffa502}
+.accepted{background:#3742fa;color:#fff}
+.cooking{background:#1e90ff;color:#fff}
 .done{background:#2ed573;color:#fff}
 .loginBox{padding:20px}
 input{padding:8px;margin-bottom:10px;width:100%}
+.empty{padding:20px;text-align:center;color:#999}
+.loading{padding:20px;text-align:center;color:#666}
 </style>
 
 </head>
@@ -34,17 +37,47 @@ input{padding:8px;margin-bottom:10px;width:100%}
 <!-- 🧾 主畫面 -->
 <div id="main" style="display:none;">
   <div class="header">📦 訂單後台</div>
-  <div id="orders">載入中...</div>
+  <div id="orders" class="loading">載入中...</div>
 </div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbwVkpidp2cO7J9yJTlLhcDkJu7sODz-1lGOCVy0sZWLZXu7MqySNSFUqu9dp-JdX7pP/exec";
 
-/******** 統一 API（帶 token） ********/
+/**********************
+🔧 ENV
+**********************/
+const ENV = {
+  dev: { API: "DEV_GAS_URL" },
+  prod: { API: "https://script.google.com/macros/s/AKfycbwVkpidp2cO7J9yJTlLhcDkJu7sODz-1lGOCVy0sZWLZXu7MqySNSFUqu9dp-JdX7pP/exec" }
+};
+
+const MODE = "prod";
+const API = ENV[MODE].API;
+const VERSION = "1.0.5";
+
+/**********************
+🔐 XSS 防護
+**********************/
+function escapeHTML(str){
+  return String(str).replace(/[&<>"']/g, m => ({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#039;"
+  }[m]));
+}
+
+/**********************
+🌐 API
+**********************/
 async function callAPI(payload){
 
-  const token = localStorage.getItem("token");
-  const storeId = localStorage.getItem("storeId");
+  const token = localStorage.getItem("token") || "";
+  const storeId = localStorage.getItem("storeId") || "";
+
+  if(!token || !storeId){
+    throw new Error("未登入");
+  }
 
   const res = await fetch(API,{
     method:"POST",
@@ -56,139 +89,211 @@ async function callAPI(payload){
     })
   });
 
-  return res.json();
-}
-
-/******** 🔐 登入 ********/
-async function login(){
-
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-
-  const res = await fetch(API,{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({
-      action:"login",
-      email,
-      password
-    })
-  });
-
   const json = await res.json();
 
   if(json.status !== "ok"){
-    alert("登入失敗");
+    throw new Error(json.message || "API錯誤");
+  }
+
+  return json;
+}
+
+/**********************
+🔐 登入
+**********************/
+async function login(){
+
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
+
+  if(!email || !password){
+    alert("請輸入帳密");
     return;
   }
 
-  // ⭐ 存 token
-  localStorage.setItem("token", json.token);
-  localStorage.setItem("storeId", json.storeId);
+  try{
 
+    const res = await fetch(API,{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({
+        action:"login",
+        email,
+        password
+      })
+    });
+
+    const json = await res.json();
+
+    if(json.status !== "ok"){
+      alert("登入失敗");
+      return;
+    }
+
+    localStorage.setItem("token", json.token);
+    localStorage.setItem("storeId", json.storeId);
+
+    enterMain();
+
+  }catch(err){
+    alert("❌ 登入錯誤");
+  }
+}
+
+/**********************
+🚀 進入系統
+**********************/
+function enterMain(){
   document.getElementById("loginBox").style.display = "none";
   document.getElementById("main").style.display = "block";
-
   loadOrders();
 }
 
-/******** 初始化 ********/
-function init(){
+/**********************
+📦 訂單
+**********************/
+async function loadOrders(){
 
-  const token = localStorage.getItem("token");
+  try{
 
-  if(token){
-    document.getElementById("loginBox").style.display = "none";
-    document.getElementById("main").style.display = "block";
-    loadOrders();
+    const res = await callAPI({
+      action:"getOrders"
+    });
+
+    renderOrders(res.data || []);
+
+  }catch(err){
+    document.getElementById("orders").innerHTML =
+      "<div class='empty'>❌ "+err.message+"</div>";
   }
 }
 
-/******** 載入訂單 ********/
-async function loadOrders(){
-
-  const res = await callAPI({
-    action:"getOrders"
-  });
-
-  if(res.status !== "ok"){
-    document.getElementById("orders").innerHTML = "❌ 載入失敗";
-    return;
-  }
-
-  const list = res.data || [];
+/**********************
+🎨 渲染
+**********************/
+function renderOrders(list){
 
   if(list.length === 0){
-    document.getElementById("orders").innerHTML = "目前沒有訂單";
+    document.getElementById("orders").innerHTML =
+      "<div class='empty'>目前沒有訂單</div>";
     return;
   }
 
-  let html = "";
+  let html="";
 
-  list.forEach(o=>{
+  list.reverse().forEach(o=>{
 
-    let items = [];
+    let items=[];
 
     try{
-      if(typeof o.items === "string"){
-        items = JSON.parse(o.items);
-      }else if(Array.isArray(o.items)){
-        items = o.items;
-      }
-    }catch(e){
-      items = [];
-    }
+      items = typeof o.items==="string" ? JSON.parse(o.items) : o.items;
+    }catch(e){ items=[]; }
 
-    let itemHTML = "";
+    let itemHTML="";
 
     items.forEach(i=>{
-      itemHTML += `<div class="item">${i.name} x${i.qty}</div>`;
+      itemHTML += `<div class="item">${escapeHTML(i.name)} x${i.qty}</div>`;
     });
 
+    const status = normalizeStatus(o.status);
+
     html += `
-      <div class="order">
-        <div>🕒 ${o.time}</div>
+    <div class="order">
 
-        ${itemHTML}
+      <div>🕒 ${o.time}</div>
 
-        <div>💰 $${o.total}</div>
+      ${itemHTML}
 
-        <div>💳 ${o.paymentMethod || "CASH"} / ${o.paymentStatus || "UNPAID"}</div>
+      <div>💰 $${o.total}</div>
 
-        <div>📦 ${o.status || "NEW"}</div>
+      <div>💳 ${o.paymentMethod||"CASH"} / ${o.paymentStatus||"UNPAID"}</div>
 
-        <div class="status">
-          <button class="new" onclick="update('${o.orderId}','NEW')">新單</button>
-          <button class="doing" onclick="update('${o.orderId}','DOING')">製作中</button>
-          <button class="done" onclick="update('${o.orderId}','DONE')">完成</button>
-        </div>
+      <div>📦 ${status}</div>
+
+      <div class="status">
+        ${renderButtons(o.orderId, status)}
       </div>
-    `;
+
+    </div>`;
   });
 
   document.getElementById("orders").innerHTML = html;
 }
 
-/******** 更新狀態 ********/
-async function update(orderId,status){
-
-  await callAPI({
-    action:"updateOrderStatus",
-    orderId,
-    status
-  });
-
-  loadOrders();
+/**********************
+🔄 狀態標準化
+**********************/
+function normalizeStatus(s){
+  if(s==="NEW") return "pending";
+  if(s==="DOING") return "cooking";
+  return (s||"pending").toLowerCase();
 }
 
-/******** 自動刷新 ********/
-setInterval(()=>{
-  if(localStorage.getItem("token")){
+/**********************
+🔘 按鈕
+**********************/
+function renderButtons(orderId,status){
+
+  return `
+    <button class="pending" onclick="update('${orderId}','pending')">待接單</button>
+    <button class="accepted" onclick="update('${orderId}','accepted')">已接單</button>
+    <button class="cooking" onclick="update('${orderId}','cooking')">製作中</button>
+    <button class="done" onclick="update('${orderId}','done')">完成</button>
+  `;
+}
+
+/**********************
+📡 更新狀態
+**********************/
+async function update(orderId,status){
+
+  try{
+
+    await callAPI({
+      action:"updateOrderStatus",
+      orderId,
+      status: status.toUpperCase()
+    });
+
     loadOrders();
+
+  }catch(err){
+    alert("❌ "+err.message);
   }
-},5000);
+}
+
+/**********************
+🔁 Polling（防炸）
+**********************/
+let polling = null;
+
+function startPolling(){
+
+  if(polling) clearInterval(polling);
+
+  polling = setInterval(()=>{
+    if(localStorage.getItem("token")){
+      loadOrders();
+    }
+  },5000);
+}
+
+/**********************
+🚀 初始化
+**********************/
+function init(){
+
+  const token = localStorage.getItem("token");
+
+  if(token){
+    enterMain();
+  }
+
+  startPolling();
+}
 
 init();
+
 </script>
 
 </body>
