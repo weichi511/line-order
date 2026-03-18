@@ -224,17 +224,24 @@ async function checkout(){
     return;
   }
 
+  if(!userId){
+    alert("請重新登入 LINE");
+    return;
+  }
+
   let total = items.reduce((s,i)=>s+i.price*i.qty,0);
 
   if(!confirm("確認送出訂單？")) return;
 
   try{
-    await fetch(API,{
+
+    const res = await fetch(API,{
       method:"POST",
       headers:{
         "Content-Type":"application/json"
       },
       body: JSON.stringify({
+        apiKey: "WEICHI_SAAS_2026", // ⭐ 新增
         action:"createOrder",
         storeId,
         userId,
@@ -242,6 +249,13 @@ async function checkout(){
         total
       })
     });
+
+    const json = await res.json();
+
+    if(json.status !== "ok"){
+      alert("❌ " + (json.message || "訂單失敗"));
+      return;
+    }
 
     alert("訂單完成 🎉");
 
