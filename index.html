@@ -84,17 +84,20 @@ async function init(){
     const params = new URLSearchParams(location.search);
     storeId = params.get("storeId") || "STORE001";
 
-    const json = await callAPI({
-      action:"getMenu",
-      storeId
-    });
+    // 🔥 改成 GET（穩定版）
+    const res = await fetch(`${API}?action=getMenu&storeId=${storeId}`);
+    const json = await res.json();
+
+    if(json.status !== "ok"){
+      throw new Error(json.message);
+    }
 
     menuData = json.data;
     renderMenu();
 
   }catch(err){
     console.error(err);
-    document.body.innerHTML = "❌ 初始化失敗";
+    document.body.innerHTML = "❌ 初始化失敗：" + err.message;
   }
 }
 
