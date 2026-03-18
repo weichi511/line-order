@@ -64,37 +64,48 @@ async function loadOrders(){
 
   list.forEach(o=>{
 
-    let items = JSON.parse(o.items || "[]");
+    let items = [];
+
+    try{
+      if(typeof o.items === "string"){
+        items = JSON.parse(o.items);
+      }else if(Array.isArray(o.items)){
+        items = o.items;
+      }
+    }catch(e){
+      items = [];
+    }
 
     let itemHTML = "";
+
     items.forEach(i=>{
       itemHTML += `<div class="item">${i.name} x${i.qty}</div>`;
     });
 
-   html += `
-  <div class="order">
-    <div>🕒 ${o.time}</div>
+    html += `
+      <div class="order">
+        <div>🕒 ${o.time}</div>
 
-    ${itemHTML}
+        ${itemHTML}
 
-    <div>💰 $${o.total}</div>
+        <div>💰 $${o.total}</div>
 
-    <div>💳 ${o.paymentMethod || "CASH"} / ${o.paymentStatus || "UNPAID"}</div>
+        <div>💳 ${o.paymentMethod || "CASH"} / ${o.paymentStatus || "UNPAID"}</div>
 
-    <div class="status">
-      <button class="new" onclick="update('${o.orderId}','NEW')">新單</button>
-      <button class="doing" onclick="update('${o.orderId}','DOING')">製作中</button>
-      <button class="done" onclick="update('${o.orderId}','DONE')">完成</button>
-    </div>
-  </div>
-`;
+        <div>📦 ${o.status || "NEW"}</div>
 
-
-    
+        <div class="status">
+          <button class="new" onclick="update('${o.orderId}','NEW')">新單</button>
+          <button class="doing" onclick="update('${o.orderId}','DOING')">製作中</button>
+          <button class="done" onclick="update('${o.orderId}','DONE')">完成</button>
+        </div>
+      </div>
+    `;
   });
 
   document.getElementById("orders").innerHTML = html;
 }
+  
 
 /******** 更新狀態 ********/
 async function update(orderId,status){
