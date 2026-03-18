@@ -114,20 +114,28 @@ async function login(){
 
   try{
 
+    const formData = new FormData();
+    formData.append("data", JSON.stringify({
+      action:"login",
+      email,
+      password
+    }));
+
     const res = await fetch(API,{
       method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({
-        action:"login",
-        email,
-        password
-      })
+      body: formData
     });
 
-    const json = await res.json();
+    const text = await res.text();
+
+    if(!text){
+      throw new Error("EMPTY RESPONSE");
+    }
+
+    const json = JSON.parse(text);
 
     if(json.status !== "ok"){
-      alert("❌ " + json.message); // ⭐ 修正
+      alert("❌ " + json.message);
       return;
     }
 
