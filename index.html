@@ -106,30 +106,35 @@ async function init(){
   try{
 
     const params = new URLSearchParams(location.search);
-
-    // ❗️禁止信任 URL storeId（暫時保留 fallback）
     storeId = params.get("storeId") || "STORE001";
 
-    // ✅ 統一走 POST（避免 CORS 問題）
+    console.log("API:", API);
+    console.log("storeId:", storeId);
+
     const res = await callAPI({
       action: "getMenu",
       storeId
     });
 
+    console.log("API RESPONSE:", res);
+
     menuData = res.data || [];
 
     if(menuData.length === 0){
-      throw new Error("菜單為空");
+      throw new Error("菜單為空（請確認 Google Sheet 有資料）");
     }
 
     renderMenu();
 
   }catch(err){
 
+    console.error(err);
+
     document.body.innerHTML = `
       <div style="padding:20px;text-align:center;">
         ❌ 初始化失敗<br><br>
-        ${err.message}
+        ${err.message}<br><br>
+        <small>請開 console (F12)</small>
       </div>
     `;
 
