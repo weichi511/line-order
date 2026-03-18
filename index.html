@@ -84,8 +84,18 @@ async function init(){
     const params = new URLSearchParams(location.search);
     storeId = params.get("storeId") || "STORE001";
 
-    // 🔥 改成 GET（穩定版）
-    const res = await fetch(`${API}?action=getMenu&storeId=${storeId}`);
+    const url = `${API}?action=getMenu&storeId=${storeId}&t=${Date.now()}`;
+
+    const res = await fetch(url, {
+      method: "GET",
+      mode: "cors",        // 🔥 強制 CORS
+      cache: "no-store"    // 🔥 避免快取
+    });
+
+    if(!res.ok){
+      throw new Error("HTTP " + res.status);
+    }
+
     const json = await res.json();
 
     if(json.status !== "ok"){
@@ -97,10 +107,16 @@ async function init(){
 
   }catch(err){
     console.error(err);
-    document.body.innerHTML = "❌ 初始化失敗：" + err.message;
+
+    document.body.innerHTML = `
+      ❌ 初始化失敗<br>
+      ${err.message}<br><br>
+      👉 API: ${API}
+    `;
   }
 }
 
+  
 /**********************
 渲染菜單
 **********************/
