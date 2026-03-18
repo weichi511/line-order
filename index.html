@@ -83,52 +83,33 @@ async function init(){
   try{
 
     const params = new URLSearchParams(location.search);
+
+    // ❗️禁止信任 URL storeId（暫時保留 fallback）
     storeId = params.get("storeId") || "STORE001";
 
-    const url = `${API}?action=getMenu&storeId=${storeId}&t=${Date.now()}`;
-
-    const res = await fetch(url, {
-      method: "GET",
-      mode: "no-cors"   // 🔥 關鍵
+    // ✅ 統一走 POST（避免 CORS 問題）
+    const res = await callAPI({
+      action: "getMenu",
+      storeId
     });
 
-    // ⚠️ no-cors 不能直接讀 JSON
-    // 👉 改 fallback 用 iframe 方式 or 改 POST
+    menuData = res.data || [];
 
-    throw new Error("no-cors 模式下無法讀資料 → 必須改 POST");
+    if(menuData.length === 0){
+      throw new Error("菜單為空");
+    }
+
+    renderMenu();
 
   }catch(err){
 
-    // 🔥 fallback 用 POST（穩定）
-    try{
+    document.body.innerHTML = `
+      <div style="padding:20px;text-align:center;">
+        ❌ 初始化失敗<br><br>
+        ${err.message}
+      </div>
+    `;
 
-      const res = await fetch(API,{
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json"
-        },
-        body: JSON.stringify({
-          action:"getMenu",
-          storeId
-        })
-      });
-
-      const json = await res.json();
-
-      if(json.status !== "ok"){
-        throw new Error(json.message);
-      }
-
-      menuData = json.data;
-      renderMenu();
-
-    }catch(e){
-
-      document.body.innerHTML = `
-        ❌ 初始化失敗<br>
-        ${e.message}
-      `;
-    }
   }
 }
 
