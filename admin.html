@@ -15,29 +15,43 @@ button{margin-right:5px;padding:5px 10px;border:none;border-radius:5px}
 .new{background:#ffa502}
 .doing{background:#1e90ff;color:#fff}
 .done{background:#2ed573;color:#fff}
+.loginBox{padding:20px}
+input{padding:8px;margin-bottom:10px;width:100%}
 </style>
 
 </head>
 
 <body>
 
-<div class="header">📦 訂單後台</div>
+<!-- 🔐 登入 -->
+<div id="loginBox" class="loginBox">
+  <h3>店家登入</h3>
+  <input id="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+  <button onclick="login()">登入</button>
+</div>
 
-<div id="orders">載入中...</div>
+<!-- 🧾 主畫面 -->
+<div id="main" style="display:none;">
+  <div class="header">📦 訂單後台</div>
+  <div id="orders">載入中...</div>
+</div>
 
 <script>
 const API = "https://script.google.com/macros/s/AKfycbwVkpidp2cO7J9yJTlLhcDkJu7sODz-1lGOCVy0sZWLZXu7MqySNSFUqu9dp-JdX7pP/exec";
-const API_KEY = "WEICHI_SAAS_2026";
-  
 
-let storeId = new URL(location.href).searchParams.get("storeId") || "STORE001";
-
+/******** 統一 API（帶 token） ********/
 async function callAPI(payload){
+
+  const token = localStorage.getItem("token");
+  const storeId = localStorage.getItem("storeId");
+
   const res = await fetch(API,{
     method:"POST",
     headers:{ "Content-Type":"application/json" },
     body: JSON.stringify({
-      apiKey: API_KEY,
+      token,
+      storeId,
       ...payload
     })
   });
@@ -45,13 +59,62 @@ async function callAPI(payload){
   return res.json();
 }
 
+/******** 🔐 登入 ********/
+async function login(){
+
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  const res = await fetch(API,{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({
+      action:"login",
+      email,
+      password
+    })
+  });
+
+  const json = await res.json();
+
+  if(json.status !== "ok"){
+    alert("登入失敗");
+    return;
+  }
+
+  // ⭐ 存 token
+  localStorage.setItem("token", json.token);
+  localStorage.setItem("storeId", json.storeId);
+
+  document.getElementById("loginBox").style.display = "none";
+  document.getElementById("main").style.display = "block";
+
+  loadOrders();
+}
+
+/******** 初始化 ********/
+function init(){
+
+  const token = localStorage.getItem("token");
+
+  if(token){
+    document.getElementById("loginBox").style.display = "none";
+    document.getElementById("main").style.display = "block";
+    loadOrders();
+  }
+}
+
 /******** 載入訂單 ********/
 async function loadOrders(){
 
   const res = await callAPI({
-    action:"getOrders",
-    storeId
+    action:"getOrders"
   });
+
+  if(res.status !== "ok"){
+    document.getElementById("orders").innerHTML = "❌ 載入失敗";
+    return;
+  }
 
   const list = res.data || [];
 
@@ -105,14 +168,12 @@ async function loadOrders(){
 
   document.getElementById("orders").innerHTML = html;
 }
-  
 
 /******** 更新狀態 ********/
 async function update(orderId,status){
 
   await callAPI({
     action:"updateOrderStatus",
-    storeId,
     orderId,
     status
   });
@@ -121,9 +182,13 @@ async function update(orderId,status){
 }
 
 /******** 自動刷新 ********/
-setInterval(loadOrders,5000);
+setInterval(()=>{
+  if(localStorage.getItem("token")){
+    loadOrders();
+  }
+},5000);
 
-loadOrders();
+init();
 </script>
 
 </body>
