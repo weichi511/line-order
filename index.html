@@ -43,14 +43,13 @@ body{margin:0;font-family:sans-serif;background:#f5f6fa}
 const API = "https://script.google.com/macros/s/AKfycbwVkpidp2cO7J9yJTlLhcDkJu7sODz-1lGOCVy0sZWLZXu7MqySNSFUqu9dp-JdX7pP/exec";
 const LIFF_ID = "2009489969-hNC94ctJ";
 
-  
 let menuData = [];
 let cart = {};
 let storeId = "";
 let userId = "";
 let currentCategory = "";
 
-/******** 安全：XSS 防護 ********/
+/******** XSS 防護 ********/
 function escapeHTML(str){
   return String(str).replace(/[&<>"']/g, m => ({
     "&":"&amp;",
@@ -61,15 +60,18 @@ function escapeHTML(str){
   }[m]));
 }
 
-/******** 統一 API ********/
+/******** 統一 API（token + storeId） ********/
 async function callAPI(payload){
+
+  const token = localStorage.getItem("token");
+
   const res = await fetch(API,{
     method:"POST",
     headers:{ "Content-Type":"application/json" },
-  body: JSON.stringify({
-  token: "這間店的token",
-  ...payload
-})
+    body: JSON.stringify({
+      token,
+      storeId,
+      ...payload
     })
   });
 
@@ -111,8 +113,7 @@ async function init(){
 async function loadMenu(){
   try{
     const json = await callAPI({
-      action:"getMenu",
-      storeId
+      action:"getMenu"
     });
 
     menuData = Array.isArray(json.data) ? json.data : [];
@@ -244,9 +245,8 @@ async function checkout(){
 
   let total = items.reduce((s,i)=>s+i.price*i.qty,0);
 
-  const method = prompt("付款方式：輸入 CASH / LINEPAY");
-
-  if(!method) return;
+  // ✅ 改 UI（取代 prompt）
+  const method = confirm("按確定 = LINEPAY\n按取消 = 現金") ? "LINEPAY" : "CASH";
 
   if(!confirm("確認送出訂單？")) return;
 
@@ -254,7 +254,6 @@ async function checkout(){
 
     const res = await callAPI({
       action:"createOrder",
-      storeId,
       userId,
       items,
       total,
@@ -262,7 +261,6 @@ async function checkout(){
     });
 
     if(method === "LINEPAY"){
-      // 👉 這裡未來串 LINE Pay
       alert("即將跳轉 LINE Pay（未實作）");
     }else{
       alert("訂單完成（現金付款）");
@@ -276,13 +274,6 @@ async function checkout(){
   }
 }
 
-
-
-
-
-
-
-  
 init();
 </script>
 
