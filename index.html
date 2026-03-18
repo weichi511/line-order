@@ -58,21 +58,44 @@ let userId = "guest_"+Date.now();
 **********************/
 async function callAPI(payload){
 
-  const res = await fetch(API,{
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json"
-    },
-    body: JSON.stringify(payload)
-  });
+  try{
 
-  const json = await res.json();
+    const res = await fetch(API,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body: JSON.stringify(payload)
+    });
 
-  if(json.status !== "ok"){
-    throw new Error(json.message);
+    // 🔥 防止空回應
+    if(!res.ok){
+      throw new Error("Network response error: " + res.status);
+    }
+
+    const text = await res.text();
+
+    if(!text){
+      throw new Error("Empty response");
+    }
+
+    let json;
+
+    try{
+      json = JSON.parse(text);
+    }catch(e){
+      throw new Error("Invalid JSON: " + text);
+    }
+
+    if(json.status !== "ok"){
+      throw new Error(json.message || "API error");
+    }
+
+    return json;
+
+  }catch(err){
+    throw new Error("API FAIL: " + err.message);
   }
-
-  return json;
 }
 
 /**********************
