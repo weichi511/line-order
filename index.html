@@ -274,7 +274,13 @@ if(o.status === "PENDING"){
           ${itemHtml || "（無品項資料）"}<br><br>
 
           💰 $${o.total}<br>
-          🚦 ${o.status}<br>
+🚦 ${o.status}<br>
+
+${o.status === "ACCEPTED" ? "👨‍🍳 店家已接單<br>" : ""}
+${o.status === "COOKING" ? "🔥 製作中<br>" : ""}
+${o.status === "DONE" ? "✅ 已完成<br>" : ""}
+${o.status === "CANCELLED" ? "❌ 已取消<br>" : ""}
+          
 
           ${
             canCancel 
