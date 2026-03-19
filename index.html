@@ -12,6 +12,7 @@ body{font-family:sans-serif;margin:0;background:#f5f6fa}
 button{padding:5px 10px;border:none;border-radius:5px;cursor:pointer}
 .cart{position:fixed;bottom:0;width:100%;background:#fff;padding:10px;border-top:1px solid #ddd}
 .checkout{background:#ff5252;color:#fff;width:100%;padding:10px;border:none;border-radius:5px}
+.cancel{background:#999;color:#fff;margin-top:8px}
 </style>
 </head>
 
@@ -27,45 +28,18 @@ button{padding:5px 10px;border:none;border-radius:5px;cursor:pointer}
   <button class="checkout">送出訂單</button>
 </div>
 
-<!-- ✅ 訂單顯示區（修正） -->
 <div id="orders" style="padding:10px;"></div>
 
 <script>
-/************************************************
- * 🔐 API
- ************************************************/
 const API = "https://script.google.com/macros/s/AKfycbyXoXGayo1j34spvZ8-xhvukiCpgPUADMi_Lms1EIErWT05w6siZ3Wge2v580PR1L51/exec";
 
-/************************************************
- * 🧠 CART
- ************************************************/
 let cart = {};
 let lastOrders = "";
 
 /************************************************
- * ➕ 加入
- ************************************************/
-function addItem(id, name, price){
-  if(!cart[id]) cart[id] = { id, name, price, qty: 0 };
-  cart[id].qty++;
-  renderCart();
-}
-
-/************************************************
- * ➖ 減少
- ************************************************/
-function decreaseItem(id){
-  if(!cart[id]) return;
-  cart[id].qty--;
-  if(cart[id].qty <= 0) delete cart[id];
-  renderCart();
-}
-
-/************************************************
- * 🍔 菜單
+ * 菜單
  ************************************************/
 function renderMenu(menu){
-
   const el = document.getElementById("menu");
   el.innerHTML = "";
 
@@ -74,9 +48,7 @@ function renderMenu(menu){
     return;
   }
 
-  // ✅ 分類
   const group = {};
-
   menu.forEach(item=>{
     const cat = item.category || "其他";
     if(!group[cat]) group[cat] = [];
@@ -84,94 +56,80 @@ function renderMenu(menu){
   });
 
   Object.keys(group).forEach(cat=>{
-
     el.innerHTML += `<h3 style="padding:10px;">🍽 ${cat}</h3>`;
 
     group[cat].forEach(item=>{
-
       const qty = cart[item.id]?.qty || 0;
 
       el.innerHTML += `
         <div class="item">
           <div style="display:flex;gap:10px;align-items:center;">
-
-            ${item.image ? 
-              `<img src="${item.image}" style="width:60px;height:60px;border-radius:8px;">`
-              : ""
-            }
-
+            ${item.image ? `<img src="${item.image}" style="width:60px;height:60px;border-radius:8px;">` : ""}
             <div>
               <b>${item.name}</b><br>
               💰 $${item.price}
             </div>
-
           </div>
 
-          <div style="display:flex;gap:8px;">
+          <div>
             <button onclick="decreaseItem('${item.id}')">➖</button>
-            <span>${qty}</span>
+            ${qty}
             <button onclick="addItem('${item.id}','${item.name}',${item.price})">➕</button>
           </div>
         </div>
       `;
     });
-
   });
 }
 
 /************************************************
- * 🧾 CART
+ * 購物車
  ************************************************/
-function renderCart(){
-  let total = 0, count = 0;
+function addItem(id,name,price){
+  if(!cart[id]) cart[id]={id,name,price,qty:0};
+  cart[id].qty++;
+  renderCart();
+}
 
+function decreaseItem(id){
+  if(!cart[id]) return;
+  cart[id].qty--;
+  if(cart[id].qty<=0) delete cart[id];
+  renderCart();
+}
+
+function renderCart(){
+  let total=0,count=0;
   Object.values(cart).forEach(i=>{
-    total += i.price * i.qty;
-    count += i.qty;
+    total+=i.price*i.qty;
+    count+=i.qty;
   });
 
-  document.getElementById("cartCount").innerText = count;
-  document.getElementById("cartTotal").innerText = total;
-
+  document.getElementById("cartCount").innerText=count;
+  document.getElementById("cartTotal").innerText=total;
   renderMenu(window.MENU_DATA);
 }
 
 /************************************************
- * 📥 載入菜單（加 debug）
+ * 載入菜單
  ************************************************/
 function loadMenu(){
-
-  const params = new URLSearchParams(window.location.search);
-  const storeId = params.get("storeId");
-
-  console.log("storeId =", storeId);
+  const storeId = new URLSearchParams(location.search).get("storeId");
 
   fetch(API + "?action=getMenu&storeId=" + storeId)
-    .then(res => res.json())
-    .then(res => {
-
-      console.log("MENU API:", res);
-
-      if(res.status === "ok"){
-        window.MENU_DATA = res.data;
-        renderMenu(res.data);
-      }else{
-        alert("菜單錯誤：" + res.message);
-      }
-
-    })
-    .catch(err=>{
-      console.error(err);
-      alert("API錯誤");
-    });
+  .then(r=>r.json())
+  .then(res=>{
+    window.MENU_DATA = res.data;
+    renderMenu(res.data);
+  });
 }
 
 /************************************************
- * 🚀 送單
+ * 送單
  ************************************************/
 function submitOrder(){
 
-  if(Object.keys(cart).length === 0){
+  if(Object.keys(cart).length===0){
     alert("請先選商品");
     return;
   }
@@ -180,8 +138,8 @@ function submitOrder(){
 
   let userId = localStorage.getItem("userId");
   if(!userId){
-    userId = "U" + Date.now();
-    localStorage.setItem("userId", userId);
+    userId="U"+Date.now();
+    localStorage.setItem("userId",userId);
   }
 
   const payload = encodeURIComponent(JSON.stringify({
@@ -192,34 +150,56 @@ function submitOrder(){
   }));
 
   fetch(API + "?data=" + payload)
-  .then(res=>res.json())
+  .then(r=>r.json())
   .then(res=>{
-
-    console.log("ORDER:", res);
-
-    if(res.status === "ok"){
+    if(res.status==="ok"){
       alert("✅ 訂單成功");
-      cart = {};
+      cart={};
       renderCart();
       loadMyOrders();
     }else{
-      alert("❌ " + res.message);
+      alert(res.message);
     }
-
   });
 }
 
 /************************************************
- * 📦 訂單
+ * 取消訂單
  ************************************************/
-
-
-function loadMyOrders(){
+function cancelOrder(orderId){
 
   const storeId = new URLSearchParams(location.search).get("storeId");
   const userId = localStorage.getItem("userId");
 
-  if(!storeId || !userId) return;
+  if(!confirm("確定取消？")) return;
+
+  const payload = encodeURIComponent(JSON.stringify({
+    action:"cancelOrder",
+    storeId,
+    orderId,
+    userId
+  }));
+
+  fetch(API + "?data=" + payload)
+  .then(r=>r.json())
+  .then(res=>{
+    if(res.status==="ok"){
+      alert("✅ 已取消");
+      loadMyOrders();
+    }else{
+      alert(res.message);
+    }
+  });
+}
+
+/************************************************
+ * 訂單
+ ************************************************/
+function loadMyOrders(){
+
+  const storeId = new URLSearchParams(location.search).get("storeId");
+  const userId = localStorage.getItem("userId");
+  if(!storeId||!userId) return;
 
   const payload = encodeURIComponent(JSON.stringify({
     action:"getUserOrders",
@@ -228,68 +208,66 @@ function loadMyOrders(){
   }));
 
   fetch(API + "?data=" + payload)
-  .then(res=>res.json())
+  .then(r=>r.json())
   .then(res=>{
 
-    console.log("MY ORDERS:", res);
+    const el=document.getElementById("orders");
 
-    const el = document.getElementById("orders");
-
-    if(res.status !== "ok"){
-      el.innerHTML = "❌ 訂單載入失敗";
+    if(res.status!=="ok"){
+      el.innerHTML="❌ 錯誤";
       return;
     }
 
-    if(res.data.length === 0){
-      el.innerHTML = "🪹 尚無訂單";
+    if(res.data.length===0){
+      el.innerHTML="🪹 尚無訂單";
       return;
     }
 
-    const newData = JSON.stringify(res.data);
-    if(newData === lastOrders) return;
-    lastOrders = newData;
+    const newData=JSON.stringify(res.data);
+    if(newData===lastOrders) return;
+    lastOrders=newData;
 
-    el.innerHTML = "<h3>📦 我的訂單（即時更新）</h3>";
+    el.innerHTML="<h3>📦 我的訂單</h3>";
 
     res.data.reverse().forEach(o=>{
 
-      // ✅ 🔥 解析品項
-      let items = [];
-      try{
-        items = JSON.parse(o.items);
-      }catch(e){}
+      let items=[];
+      try{items=JSON.parse(o.items);}catch(e){}
 
-      let itemHtml = items
-        .map(i=>`• ${i.name} x${i.qty}`)
-        .join("<br>");
+      let itemHtml=items.map(i=>`• ${i.name} x${i.qty}`).join("<br>");
 
-      el.innerHTML += `
+      let canCancel=false;
+      if(o.status==="PENDING"){
+        const diff=(Date.now()-new Date(o.time))/1000;
+        if(diff<=120) canCancel=true;
+      }
+
+      el.innerHTML+=`
         <div style="
           background:#fff;
           margin:10px;
           padding:15px;
           border-radius:12px;
           border-left:6px solid ${
-            o.status === "DONE" ? "#00c853" :
-            o.status === "COOKING" ? "#ff9800" :
-            o.status === "ACCEPTED" ? "#673ab7" :
+            o.status==="DONE"?"#00c853":
+            o.status==="COOKING"?"#ff9800":
+            o.status==="ACCEPTED"?"#673ab7":
+            o.status==="CANCELLED"?"#999":
             "#2196f3"
           };
         ">
           🆔 ${o.orderId}<br><br>
-
-          ${itemHtml || "（無品項資料）"}<br><br>
-
+          ${itemHtml}<br><br>
           💰 $${o.total}<br>
           🚦 ${o.status}<br>
-          <small>${new Date(o.time).toLocaleString()}</small>
+
+          ${canCancel ? `<button class="cancel" onclick="cancelOrder('${o.orderId}')">取消訂單</button>`:""}
+
+          <br><small>${new Date(o.time).toLocaleString()}</small>
         </div>
       `;
     });
 
-  })
-  .catch(err=>{
-    console.error(err);
   });
 }
 
@@ -298,10 +276,10 @@ function loadMyOrders(){
  ************************************************/
 loadMenu();
 loadMyOrders();
-setInterval(loadMyOrders, 3000);
+setInterval(loadMyOrders,3000);
 
 document.querySelector(".checkout")
-  .addEventListener("click", submitOrder);
+  .addEventListener("click",submitOrder);
 
 </script>
 
