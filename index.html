@@ -169,37 +169,34 @@ function submitOrder(){
     localStorage.setItem("userId", userId);
   }
 
-  // ✅ 🔥 改用 FormData（關鍵）
-  const formData = new FormData();
-  formData.append("data", JSON.stringify({
+  const payload = encodeURIComponent(JSON.stringify({
     action: "createOrder",
     storeId,
     userId,
     items: Object.values(cart)
   }));
 
-  fetch(API, {
-    method: "POST",
-    body: formData   // ❗不要加 headers
-  })
-  .then(res => res.json())
-  .then(res => {
+  // ✅ 改 GET（關鍵）
+  fetch(API + "?data=" + payload)
+    .then(res => res.json())
+    .then(res => {
 
-    console.log("ORDER:", res);
+      console.log("ORDER:", res);
 
-    if(res.status === "ok"){
-      alert("訂單成功");
-      cart = {};
-      renderCart();
-    }else{
-      alert("訂單失敗：" + res.message);
-    }
+      if(res.status === "ok"){
+        alert("訂單成功");
+        cart = {};
+        renderCart();
+        loadMyOrders(); // 🔥 補這行（讓你看到訂單）
+      }else{
+        alert("訂單失敗：" + res.message);
+      }
 
-  })
-  .catch(err=>{
-    console.error("ERR:", err);
-    alert("送出失敗");
-  });
+    })
+    .catch(err=>{
+      console.error("ERR:", err);
+      alert("送出失敗");
+    });
 }
 
 /************************************************
