@@ -156,27 +156,50 @@ function loadMenu(){
  * 🚀 送出訂單（簡化版）
  ************************************************/
 function submitOrder(){
+
   if(Object.keys(cart).length === 0){
     alert("請先選擇商品");
     return;
+  }
+
+  // ✅ 取得 storeId
+  const params = new URLSearchParams(window.location.search);
+  const storeId = params.get("storeId");
+
+  if(!storeId){
+    alert("缺少 storeId");
+    return;
+  }
+
+  // ✅ userId（先用 local 或假值）
+  let userId = localStorage.getItem("userId");
+  if(!userId){
+    userId = "U" + Date.now();
+    localStorage.setItem("userId", userId);
   }
 
   fetch(API, {
     method: "POST",
     body: JSON.stringify({
       action: "createOrder",
+      storeId: storeId,   // 🔥 必填
+      userId: userId,     // 🔥 必填
       items: Object.values(cart)
     })
   })
   .then(res => res.json())
   .then(res => {
+
+    console.log("ORDER:", res);
+
     if(res.status === "ok"){
       alert("訂單成功");
       cart = {};
       renderCart();
     }else{
-      alert("訂單失敗");
+      alert("訂單失敗：" + res.message); // 🔥 顯示錯誤原因
     }
+
   })
   .catch(err=>{
     console.error(err);
