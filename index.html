@@ -4,10 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>點餐系統</title>
-  
 
-  
-  
 <style>
 body{font-family:sans-serif;margin:0;background:#f5f6fa}
 .header{background:#00c853;color:#fff;padding:15px;text-align:center;font-size:20px}
@@ -20,7 +17,6 @@ button{padding:5px 10px;border:none;border-radius:5px;cursor:pointer}
 
 <body>
 
-  
 <div class="header">🍱 點餐系統</div>
 
 <div id="menu"></div>
@@ -28,58 +24,54 @@ button{padding:5px 10px;border:none;border-radius:5px;cursor:pointer}
 <div class="cart">
   🛒 <span id="cartCount">0</span> 件　
   💰 $<span id="cartTotal">0</span>
-  
   <button class="checkout">送出訂單</button>
 </div>
 
-  !-- ✅ 🔥 新增：訂單顯示區 -->
+<!-- ✅ 訂單顯示區（修正） -->
 <div id="orders" style="padding:10px;"></div>
 
 <script>
 /************************************************
- * 🔐 ENV（之後你要切 dev/prod）
+ * 🔐 API
  ************************************************/
 const API = "https://script.google.com/macros/s/AKfycbyXoXGayo1j34spvZ8-xhvukiCpgPUADMi_Lms1EIErWT05w6siZ3Wge2v580PR1L51/exec";
 
-  
 /************************************************
- * 🧠 CART STATE
+ * 🧠 CART
  ************************************************/
 let cart = {};
+let lastOrders = "";
 
 /************************************************
- * ➕ 加入商品
+ * ➕ 加入
  ************************************************/
 function addItem(id, name, price){
-  if(!cart[id]){
-    cart[id] = { id, name, price, qty: 0 };
-  }
+  if(!cart[id]) cart[id] = { id, name, price, qty: 0 };
   cart[id].qty++;
   renderCart();
 }
 
 /************************************************
- * ➖ 減少商品
+ * ➖ 減少
  ************************************************/
 function decreaseItem(id){
   if(!cart[id]) return;
-
   cart[id].qty--;
-
-  if(cart[id].qty <= 0){
-    delete cart[id];
-  }
-
+  if(cart[id].qty <= 0) delete cart[id];
   renderCart();
 }
-  
 
 /************************************************
- * 🍔 渲染菜單（含 + -）
+ * 🍔 菜單
  ************************************************/
 function renderMenu(menu){
   const el = document.getElementById("menu");
   el.innerHTML = "";
+
+  if(!menu || menu.length === 0){
+    el.innerHTML = "❌ 沒有菜單資料";
+    return;
+  }
 
   menu.forEach(item=>{
     const qty = cart[item.id]?.qty || 0;
@@ -91,7 +83,7 @@ function renderMenu(menu){
           $${item.price}
         </div>
 
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div style="display:flex;gap:8px;">
           <button onclick="decreaseItem('${item.id}')">➖</button>
           <span>${qty}</span>
           <button onclick="addItem('${item.id}','${item.name}',${item.price})">➕</button>
@@ -102,11 +94,10 @@ function renderMenu(menu){
 }
 
 /************************************************
- * 🧾 渲染購物車
+ * 🧾 CART
  ************************************************/
 function renderCart(){
-  let total = 0;
-  let count = 0;
+  let total = 0, count = 0;
 
   Object.values(cart).forEach(i=>{
     total += i.price * i.qty;
@@ -120,33 +111,27 @@ function renderCart(){
 }
 
 /************************************************
- * 📥 載入菜單（從 GAS）
+ * 📥 載入菜單（加 debug）
  ************************************************/
 function loadMenu(){
 
   const params = new URLSearchParams(window.location.search);
   const storeId = params.get("storeId");
 
-  if(!storeId){
-    alert("缺少 storeId");
-    return;
-  }
+  console.log("storeId =", storeId);
 
-  // ✅ 改成 GET（重點）
   fetch(API + "?action=getMenu&storeId=" + storeId)
     .then(res => res.json())
     .then(res => {
 
-      console.log("API:", res);
+      console.log("MENU API:", res);
 
-      if(res.status === "ok" && Array.isArray(res.data)){
+      if(res.status === "ok"){
         window.MENU_DATA = res.data;
-        renderMenu(window.MENU_DATA);
-        return;
+        renderMenu(res.data);
+      }else{
+        alert("菜單錯誤：" + res.message);
       }
-
-      alert("菜單載入失敗");
-      console.error(res);
 
     })
     .catch(err=>{
@@ -154,18 +139,18 @@ function loadMenu(){
       alert("API錯誤");
     });
 }
+
 /************************************************
- * 🚀 送出訂單（簡化版）
+ * 🚀 送單
  ************************************************/
 function submitOrder(){
 
   if(Object.keys(cart).length === 0){
-    alert("請先選擇商品");
+    alert("請先選商品");
     return;
   }
 
-  const params = new URLSearchParams(window.location.search);
-  const storeId = params.get("storeId");
+  const storeId = new URLSearchParams(location.search).get("storeId");
 
   let userId = localStorage.getItem("userId");
   if(!userId){
@@ -174,46 +159,37 @@ function submitOrder(){
   }
 
   const payload = encodeURIComponent(JSON.stringify({
-    action: "createOrder",
+    action:"createOrder",
     storeId,
     userId,
-    items: Object.values(cart)
+    items:Object.values(cart)
   }));
 
-  // ✅ 改 GET（關鍵）
   fetch(API + "?data=" + payload)
-    .then(res => res.json())
-    .then(res => {
+  .then(res=>res.json())
+  .then(res=>{
 
-      console.log("ORDER:", res);
+    console.log("ORDER:", res);
 
-      if(res.status === "ok"){
-        alert("訂單成功");
-        cart = {};
-        renderCart();
-        loadMyOrders(); // 🔥 補這行（讓你看到訂單）
-      }else{
-        alert("訂單失敗：" + res.message);
-      }
+    if(res.status === "ok"){
+      alert("✅ 訂單成功");
+      cart = {};
+      renderCart();
+      loadMyOrders();
+    }else{
+      alert("❌ " + res.message);
+    }
 
-    })
-    .catch(err=>{
-      console.error("ERR:", err);
-      alert("送出失敗");
-    });
+  });
 }
 
 /************************************************
- * loadMyOrders
+ * 📦 訂單
  ************************************************/
-let lastOrders = "";
-
 function loadMyOrders(){
 
-  const params = new URLSearchParams(window.location.search);
-  const storeId = params.get("storeId");
+  const storeId = new URLSearchParams(location.search).get("storeId");
   const userId = localStorage.getItem("userId");
-
   if(!storeId || !userId) return;
 
   const payload = encodeURIComponent(JSON.stringify({
@@ -229,8 +205,6 @@ function loadMyOrders(){
     if(res.status !== "ok") return;
 
     const newData = JSON.stringify(res.data);
-
-    // ✅ 沒變就不更新（防閃）
     if(newData === lastOrders) return;
     lastOrders = newData;
 
@@ -240,17 +214,7 @@ function loadMyOrders(){
 
     res.data.reverse().forEach(o=>{
       el.innerHTML += `
-        <div style="
-          background:#fff;
-          margin:10px;
-          padding:12px;
-          border-radius:10px;
-          border-left:5px solid ${
-            o.status === "DONE" ? "#00c853" :
-            o.status === "COOKING" ? "#ff9800" :
-            "#2196f3"
-          };
-        ">
+        <div style="background:#fff;margin:10px;padding:10px;border-radius:10px;">
           🆔 ${o.orderId}<br>
           💰 $${o.total}<br>
           🚦 ${o.status}
@@ -258,8 +222,7 @@ function loadMyOrders(){
       `;
     });
 
-  })
-  .catch(err=>console.error(err));
+  });
 }
 
 /************************************************
@@ -267,16 +230,12 @@ function loadMyOrders(){
  ************************************************/
 loadMenu();
 loadMyOrders();
-
-// ✅ 🔥 每3秒自動更新訂單
 setInterval(loadMyOrders, 3000);
 
-// ✅ 按鈕
 document.querySelector(".checkout")
   .addEventListener("click", submitOrder);
 
+</script>
 
-
-  
 </body>
 </html>
