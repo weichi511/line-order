@@ -162,7 +162,7 @@ function submitOrder(){
     return;
   }
 
-  // ✅ 取得 storeId
+  // ✅ 從 URL 拿 storeId
   const params = new URLSearchParams(window.location.search);
   const storeId = params.get("storeId");
 
@@ -171,7 +171,7 @@ function submitOrder(){
     return;
   }
 
-  // ✅ userId（先用 local 或假值）
+  // ✅ 建立 userId（最小可用）
   let userId = localStorage.getItem("userId");
   if(!userId){
     userId = "U" + Date.now();
@@ -190,14 +190,14 @@ function submitOrder(){
   .then(res => res.json())
   .then(res => {
 
-    console.log("ORDER:", res);
+    console.log("ORDER:", res); // 🔥 一定要看
 
     if(res.status === "ok"){
       alert("訂單成功");
       cart = {};
       renderCart();
     }else{
-      alert("訂單失敗：" + res.message); // 🔥 顯示錯誤原因
+      alert("訂單失敗：" + res.message); // 🔥 顯示真正錯誤
     }
 
   })
