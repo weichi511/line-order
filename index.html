@@ -212,8 +212,6 @@ function loadMyOrders(){
   .then(res=>res.json())
   .then(res=>{
 
-    console.log("MY ORDERS:", res);
-
     const el = document.getElementById("orders");
 
     if(res.status !== "ok"){
@@ -226,7 +224,7 @@ function loadMyOrders(){
       return;
     }
 
-    // ✅ 🔥 強制更新（修正卡住問題）
+    // ✅ 強制刷新（避免取消後不更新）
     lastOrders = JSON.stringify(res.data);
 
     el.innerHTML = "<h3>📦 我的訂單（即時更新）</h3>";
@@ -243,52 +241,76 @@ function loadMyOrders(){
         .map(i=>`• ${i.name} x${i.qty}`)
         .join("<br>");
 
-      // ✅ 是否可取消（2分鐘內 + PENDING）
+      // ✅ 是否可取消
       let canCancel = false;
-    let canCancel = false;
+      if(o.status === "PENDING"){
+        const diff = (Date.now() - new Date(o.time)) / 1000;
+        if(diff <= 120) canCancel = true;
+      }
 
-if(o.status === "PENDING"){
-  const diff = (Date.now() - new Date(o.time)) / 1000;
+      // ✅ 狀態 UI
+      const statusMap = {
+        PENDING: {text:"🕒 等待中", color:"#2196f3"},
+        ACCEPTED: {text:"👨‍🍳 已接單", color:"#673ab7"},
+        COOKING: {text:"🔥 製作中", color:"#ff9800"},
+        DONE: {text:"✅ 已完成", color:"#00c853"},
+        CANCELLED: {text:"❌ 已取消", color:"#9e9e9e"}
+      };
 
-  if(diff <= 120){
-    canCancel = true;
-  }
-}
+      const s = statusMap[o.status] || {text:o.status, color:"#999"};
 
       el.innerHTML += `
         <div style="
           background:#fff;
-          margin:10px;
-          padding:15px;
-          border-radius:12px;
-          border-left:6px solid ${
-            o.status === "DONE" ? "#00c853" :
-            o.status === "COOKING" ? "#ff9800" :
-            o.status === "ACCEPTED" ? "#673ab7" :
-            o.status === "CANCELLED" ? "#999" :
-            "#2196f3"
-          };
+          margin:12px;
+          padding:16px;
+          border-radius:16px;
+          box-shadow:0 4px 12px rgba(0,0,0,0.08);
         ">
-          🆔 ${o.orderId}<br><br>
-
-          ${itemHtml || "（無品項資料）"}<br><br>
-
-          💰 $${o.total}<br>
-🚦 ${o.status}<br>
-
-${o.status === "ACCEPTED" ? "👨‍🍳 店家已接單<br>" : ""}
-${o.status === "COOKING" ? "🔥 製作中<br>" : ""}
-${o.status === "DONE" ? "✅ 已完成<br>" : ""}
-${o.status === "CANCELLED" ? "❌ 已取消<br>" : ""}
           
+          <!-- 上排 -->
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-weight:bold;">🆔 ${o.orderId}</div>
+            <div style="
+              background:${s.color};
+              color:#fff;
+              padding:4px 10px;
+              border-radius:999px;
+              font-size:12px;
+            ">
+              ${s.text}
+            </div>
+          </div>
 
+          <!-- 品項 -->
+          <div style="margin-top:10px;line-height:1.6;">
+            ${itemHtml || "（無品項）"}
+          </div>
+
+          <!-- 金額 -->
+          <div style="margin-top:10px;font-weight:bold;">
+            💰 $${o.total}
+          </div>
+
+          <!-- 時間 -->
+          <div style="font-size:12px;color:#888;margin-top:4px;">
+            ${new Date(o.time).toLocaleString()}
+          </div>
+
+          <!-- 取消 -->
           ${
             canCancel 
-            ? `<button class="cancel" onclick="cancelOrder('${o.orderId}')">取消訂單</button>`
+            ? `<button class="cancel" style="
+                  margin-top:10px;
+                  width:100%;
+                  background:#eee;
+                  color:#333;
+                " onclick="cancelOrder('${o.orderId}')">
+                取消訂單
+              </button>`
             : ""
           }
 
-          <br><small>${new Date(o.time).toLocaleString()}</small>
         </div>
       `;
     });
