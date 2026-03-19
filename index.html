@@ -65,31 +65,57 @@ function decreaseItem(id){
  * 🍔 菜單
  ************************************************/
 function renderMenu(menu){
+
   const el = document.getElementById("menu");
   el.innerHTML = "";
 
   if(!menu || menu.length === 0){
-    el.innerHTML = "❌ 沒有菜單資料";
+    el.innerHTML = "❌ 沒有菜單";
     return;
   }
 
+  // ✅ 分類
+  const group = {};
+
   menu.forEach(item=>{
-    const qty = cart[item.id]?.qty || 0;
+    const cat = item.category || "其他";
+    if(!group[cat]) group[cat] = [];
+    group[cat].push(item);
+  });
 
-    el.innerHTML += `
-      <div class="item">
-        <div>
-          <b>${item.name}</b><br>
-          $${item.price}
-        </div>
+  Object.keys(group).forEach(cat=>{
 
-        <div style="display:flex;gap:8px;">
-          <button onclick="decreaseItem('${item.id}')">➖</button>
-          <span>${qty}</span>
-          <button onclick="addItem('${item.id}','${item.name}',${item.price})">➕</button>
+    el.innerHTML += `<h3 style="padding:10px;">🍽 ${cat}</h3>`;
+
+    group[cat].forEach(item=>{
+
+      const qty = cart[item.id]?.qty || 0;
+
+      el.innerHTML += `
+        <div class="item">
+          <div style="display:flex;gap:10px;align-items:center;">
+
+            ${item.image ? 
+              `<img src="${item.image}" style="width:60px;height:60px;border-radius:8px;">`
+              : ""
+            }
+
+            <div>
+              <b>${item.name}</b><br>
+              💰 $${item.price}
+            </div>
+
+          </div>
+
+          <div style="display:flex;gap:8px;">
+            <button onclick="decreaseItem('${item.id}')">➖</button>
+            <span>${qty}</span>
+            <button onclick="addItem('${item.id}','${item.name}',${item.price})">➕</button>
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    });
+
   });
 }
 
