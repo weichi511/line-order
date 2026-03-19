@@ -254,15 +254,18 @@ function loadMyOrders(){
 /************************************************
  * INIT
  ************************************************/
+/************************************************
+ * INIT
+ ************************************************/
 loadMenu();
-
-// ✅ 🔥 加這行（顯示使用者訂單）
 loadMyOrders();
 
-// ✅ 強制綁定按鈕事件（修正 onclick 失效）
+// ✅ 🔥 每3秒自動更新訂單
+setInterval(loadMyOrders, 3000);
+
+// ✅ 按鈕
 document.querySelector(".checkout")
   .addEventListener("click", submitOrder);
-</script>
 
 
 
