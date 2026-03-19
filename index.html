@@ -119,7 +119,6 @@ function renderCart(){
  ************************************************/
 function loadMenu(){
 
-  // ✅ 從 URL 取得 storeId
   const params = new URLSearchParams(window.location.search);
   const storeId = params.get("storeId");
 
@@ -128,32 +127,27 @@ function loadMenu(){
     return;
   }
 
-  fetch(API, {
-    method: "POST",
-    body: JSON.stringify({
-      action: "getMenu",
-      storeId: storeId
+  // ✅ 改成 GET（重點）
+  fetch(API + "?action=getMenu&storeId=" + storeId)
+    .then(res => res.json())
+    .then(res => {
+
+      console.log("API:", res);
+
+      if(res.status === "ok" && Array.isArray(res.data)){
+        window.MENU_DATA = res.data;
+        renderMenu(window.MENU_DATA);
+        return;
+      }
+
+      alert("菜單載入失敗");
+      console.error(res);
+
     })
-  })
-  .then(res => res.json())
-  .then(res => {
-
-    console.log("API:", res);
-
-    if(res.status === "ok" && Array.isArray(res.data)){
-      window.MENU_DATA = res.data;
-      renderMenu(window.MENU_DATA);
-      return;
-    }
-
-    alert("菜單載入失敗");
-    console.error(res);
-
-  })
-  .catch(err=>{
-    console.error(err);
-    alert("API錯誤");
-  });
+    .catch(err=>{
+      console.error(err);
+      alert("API錯誤");
+    });
 }
 /************************************************
  * 🚀 送出訂單（簡化版）
