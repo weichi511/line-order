@@ -163,31 +163,25 @@ function submitOrder(){
   const params = new URLSearchParams(window.location.search);
   const storeId = params.get("storeId");
 
-  if(!storeId){
-    alert("缺少 storeId");
-    return;
-  }
-
   let userId = localStorage.getItem("userId");
   if(!userId){
     userId = "U" + Date.now();
     localStorage.setItem("userId", userId);
   }
 
+  // ✅ 🔥 關鍵：改用 FormData（避免 preflight）
+  const formData = new FormData();
+
+  formData.append("data", JSON.stringify({
+    action: "createOrder",
+    storeId,
+    userId,
+    items: Object.values(cart)
+  }));
+
   fetch(API, {
     method: "POST",
-
-    // ✅ 🔥 關鍵修正
-    headers: {
-      "Content-Type": "application/json"
-    },
-
-    body: JSON.stringify({
-      action: "createOrder",
-      storeId: storeId,
-      userId: userId,
-      items: Object.values(cart)
-    })
+    body: formData   // ❗ 不要加 Content-Type
   })
   .then(res => res.json())
   .then(res => {
