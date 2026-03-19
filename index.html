@@ -116,7 +116,14 @@ function renderCart(){
  ************************************************/
 function loadMenu(){
 
-  const storeId = "default"; // ⚠️ 先寫死測試
+  // ✅ 從 URL 取得 storeId
+  const params = new URLSearchParams(window.location.search);
+  const storeId = params.get("storeId");
+
+  if(!storeId){
+    alert("缺少 storeId");
+    return;
+  }
 
   fetch(API, {
     method: "POST",
