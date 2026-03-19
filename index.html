@@ -169,9 +169,8 @@ function submitOrder(){
     localStorage.setItem("userId", userId);
   }
 
-  // ✅ 🔥 關鍵：改用 FormData（避免 preflight）
+  // ✅ 🔥 改用 FormData（關鍵）
   const formData = new FormData();
-
   formData.append("data", JSON.stringify({
     action: "createOrder",
     storeId,
@@ -181,7 +180,7 @@ function submitOrder(){
 
   fetch(API, {
     method: "POST",
-    body: formData   // ❗ 不要加 Content-Type
+    body: formData   // ❗不要加 headers
   })
   .then(res => res.json())
   .then(res => {
@@ -198,7 +197,7 @@ function submitOrder(){
 
   })
   .catch(err=>{
-    console.error(err);
+    console.error("ERR:", err);
     alert("送出失敗");
   });
 }
