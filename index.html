@@ -206,11 +206,16 @@ function submitOrder(){
     alert("送出失敗");
   });
 }
+  
 
 /************************************************
  * INIT
  ************************************************/
 loadMenu();
+
+// ✅ 強制綁定按鈕事件（修正 onclick 失效）
+document.querySelector(".checkout")
+  .addEventListener("click", submitOrder);
 </script>
 
 </body>
