@@ -205,7 +205,6 @@ function submitOrder(){
 /************************************************
  * loadMyOrders
  ************************************************/
-
 function loadMyOrders(){
 
   const params = new URLSearchParams(window.location.search);
@@ -217,20 +216,24 @@ function loadMyOrders(){
     return;
   }
 
+  // ✅ 🔥 改成 FormData（關鍵）
+  const formData = new FormData();
+  formData.append("data", JSON.stringify({
+    action:"getUserOrders",
+    storeId,
+    userId
+  }));
+
   fetch(API, {
     method:"POST",
-    body: JSON.stringify({
-      action:"getUserOrders",
-      storeId,
-      userId
-    })
+    body: formData   // ❗不要加 headers
   })
   .then(res=>res.json())
   .then(res=>{
     console.log("MY ORDERS:", res);
   })
   .catch(err=>{
-    console.error(err);
+    console.error("ERR:", err);
   });
 }
 
