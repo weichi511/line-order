@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>點餐系統</title>
+  
 
   
   
@@ -205,16 +206,15 @@ function submitOrder(){
 /************************************************
  * loadMyOrders
  ************************************************/
+let lastOrders = "";
+
 function loadMyOrders(){
 
   const params = new URLSearchParams(window.location.search);
   const storeId = params.get("storeId");
   const userId = localStorage.getItem("userId");
 
-  if(!storeId || !userId){
-    console.log("no userId or storeId");
-    return;
-  }
+  if(!storeId || !userId) return;
 
   const payload = encodeURIComponent(JSON.stringify({
     action:"getUserOrders",
@@ -222,21 +222,35 @@ function loadMyOrders(){
     userId
   }));
 
-  // ✅ 改 GET（關鍵）
   fetch(API + "?data=" + payload)
   .then(res=>res.json())
   .then(res=>{
 
-    console.log("MY ORDERS:", res);
-
     if(res.status !== "ok") return;
 
+    const newData = JSON.stringify(res.data);
+
+    // ✅ 沒變就不更新（防閃）
+    if(newData === lastOrders) return;
+    lastOrders = newData;
+
     const el = document.getElementById("orders");
+
     el.innerHTML = "<h3>📦 我的訂單</h3>";
 
-    res.data.forEach(o=>{
+    res.data.reverse().forEach(o=>{
       el.innerHTML += `
-        <div style="background:#fff;margin:10px;padding:10px;border-radius:8px;">
+        <div style="
+          background:#fff;
+          margin:10px;
+          padding:12px;
+          border-radius:10px;
+          border-left:5px solid ${
+            o.status === "DONE" ? "#00c853" :
+            o.status === "COOKING" ? "#ff9800" :
+            "#2196f3"
+          };
+        ">
           🆔 ${o.orderId}<br>
           💰 $${o.total}<br>
           🚦 ${o.status}
@@ -245,15 +259,9 @@ function loadMyOrders(){
     });
 
   })
-  .catch(err=>{
-    console.error("ERR:", err);
-  });
+  .catch(err=>console.error(err));
 }
 
-  
-/************************************************
- * INIT
- ************************************************/
 /************************************************
  * INIT
  ************************************************/
