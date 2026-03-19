@@ -216,27 +216,39 @@ function loadMyOrders(){
     return;
   }
 
-  // ✅ 🔥 改成 FormData（關鍵）
-  const formData = new FormData();
-  formData.append("data", JSON.stringify({
+  const payload = encodeURIComponent(JSON.stringify({
     action:"getUserOrders",
     storeId,
     userId
   }));
 
-  fetch(API, {
-    method:"POST",
-    body: formData   // ❗不要加 headers
-  })
+  // ✅ 改 GET（關鍵）
+  fetch(API + "?data=" + payload)
   .then(res=>res.json())
   .then(res=>{
+
     console.log("MY ORDERS:", res);
+
+    if(res.status !== "ok") return;
+
+    const el = document.getElementById("orders");
+    el.innerHTML = "<h3>📦 我的訂單</h3>";
+
+    res.data.forEach(o=>{
+      el.innerHTML += `
+        <div style="background:#fff;margin:10px;padding:10px;border-radius:8px;">
+          🆔 ${o.orderId}<br>
+          💰 $${o.total}<br>
+          🚦 ${o.status}
+        </div>
+      `;
+    });
+
   })
   .catch(err=>{
     console.error("ERR:", err);
   });
 }
-
 
   
 /************************************************
