@@ -2,315 +2,76 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>店家後台</title>
-  
 
 <style>
-body{font-family:sans-serif;margin:0;background:#f5f6fa}
+body{font-family:sans-serif;background:#f5f6fa;margin:0}
 .header{background:#222;color:#fff;padding:15px;text-align:center}
-.order{background:#fff;margin:10px;padding:10px;border-radius:8px}
-.item{font-size:14px;margin:3px 0}
-.status{margin-top:10px}
-button{margin-right:5px;padding:6px 10px;border:none;border-radius:5px;cursor:pointer}
-.pending{background:#ffa502}
-.accepted{background:#3742fa;color:#fff}
-.cooking{background:#1e90ff;color:#fff}
-.done{background:#2ed573;color:#fff}
-.loginBox{padding:20px}
-input{padding:8px;margin-bottom:10px;width:100%}
-.empty{padding:20px;text-align:center;color:#999}
-.loading{padding:20px;text-align:center;color:#666}
+.card{background:#fff;margin:10px;padding:15px;border-radius:10px}
+button{margin:3px;padding:5px 10px}
 </style>
-
 </head>
 
 <body>
 
-<!-- 🔐 登入 -->
-<div id="loginBox" class="loginBox">
-  <h3>店家登入</h3>
-  <input id="email" placeholder="Email">
-  <input id="password" type="password" placeholder="Password">
-  <button onclick="login()">登入</button>
-</div>
+<div class="header">🏪 店家後台</div>
 
-<!-- 🧾 主畫面 -->
-<div id="main" style="display:none;">
-  <div class="header">📦 訂單後台</div>
-  <div id="orders" class="loading">載入中...</div>
-</div>
+<div id="orders"></div>
 
 <script>
+const API = "你的API";
 
-/**********************
-🔧 ENV
-**********************/
-const ENV = {
-  dev: { API: "DEV_GAS_URL" },
-  prod: { API: "https://script.google.com/macros/s/AKfycbyXoXGayo1j34spvZ8-xhvukiCpgPUADMi_Lms1EIErWT05w6siZ3Wge2v580PR1L51/exec" }
-};
+function loadOrders(){
 
-const MODE = "prod";
-const API = ENV[MODE].API;
-const VERSION = "1.0.5";
+  const storeId = prompt("輸入 storeId");
 
-/**********************
-🔐 XSS 防護
-**********************/
-function escapeHTML(str){
-  return String(str).replace(/[&<>"']/g, m => ({
-    "&":"&amp;",
-    "<":"&lt;",
-    ">":"&gt;",
-    '"':"&quot;",
-    "'":"&#039;"
-  }[m]));
-}
-
-/**********************
-🌐 API
-**********************/
-async function callAPI(payload){
-
-  const token = localStorage.getItem("token") || "";
-  const storeId = localStorage.getItem("storeId") || "";
-
-  if(!token || !storeId){
-    throw new Error("未登入");
-  }
-
-  const formData = new FormData();
-  formData.append("data", JSON.stringify({
-    token,
-    storeId,
-    ...payload
+  const payload = encodeURIComponent(JSON.stringify({
+    action:"getOrders",
+    storeId
   }));
 
-  const res = await fetch(API,{
-    method:"POST",
-    body: formData
+  fetch(API + "?data=" + payload)
+  .then(res=>res.json())
+  .then(res=>{
+
+    const el = document.getElementById("orders");
+    el.innerHTML = "";
+
+    res.data.reverse().forEach(o=>{
+
+      el.innerHTML += `
+        <div class="card">
+          🆔 ${o.orderId}<br>
+          💰 $${o.total}<br>
+          🚦 ${o.status}<br>
+
+          <button onclick="update('${o.orderId}','ACCEPTED')">接單</button>
+          <button onclick="update('${o.orderId}','COOKING')">製作</button>
+          <button onclick="update('${o.orderId}','DONE')">完成</button>
+        </div>
+      `;
+    });
+
   });
-
-  const text = await res.text();
-
-  if(!text){
-    throw new Error("EMPTY RESPONSE");
-  }
-
-  const json = JSON.parse(text);
-
-  if(json.status !== "ok"){
-    throw new Error(json.message || "API錯誤");
-  }
-
-  return json;
 }
 
-/**********************
-🔐 登入
-**********************/
-async function login(){
+function update(orderId,status){
 
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value.trim();
+  const storeId = prompt("storeId");
 
-  if(!email || !password){
-    alert("請輸入帳密");
-    return;
-  }
+  const payload = encodeURIComponent(JSON.stringify({
+    action:"updateOrderStatus",
+    storeId,
+    orderId,
+    status
+  }));
 
-  try{
-
-    const formData = new FormData();
-    formData.append("data", JSON.stringify({
-      action:"login",
-      email,
-      password
-    }));
-
-    const res = await fetch(API,{
-      method:"POST",
-      body: formData
-    });
-
-    const text = await res.text();
-
-    if(!text){
-      throw new Error("EMPTY RESPONSE");
-    }
-
-    const json = JSON.parse(text);
-
-    if(json.status !== "ok"){
-      alert("❌ " + json.message);
-      return;
-    }
-
-    localStorage.setItem("token", json.token);
-    localStorage.setItem("storeId", json.storeId);
-
-    enterMain();
-
-  }catch(err){
-    alert("❌ " + err.message);
-  }
+  fetch(API + "?data=" + payload)
+  .then(()=>loadOrders());
 }
 
-/**********************
-🚀 進入系統
-**********************/
-function enterMain(){
-  document.getElementById("loginBox").style.display = "none";
-  document.getElementById("main").style.display = "block";
-  loadOrders();
-}
-
-/**********************
-📦 訂單
-**********************/
-async function loadOrders(){
-
-  try{
-
-    const res = await callAPI({
-      action:"getOrders"
-    });
-
-    renderOrders(res.data || []);
-
-  }catch(err){
-    document.getElementById("orders").innerHTML =
-      "<div class='empty'>❌ "+err.message+"</div>";
-  }
-}
-
-/**********************
-🎨 渲染
-**********************/
-function renderOrders(list){
-
-  if(list.length === 0){
-    document.getElementById("orders").innerHTML =
-      "<div class='empty'>目前沒有訂單</div>";
-    return;
-  }
-
-  let html="";
-
-  list.reverse().forEach(o=>{
-
-    let items=[];
-
-    try{
-      items = typeof o.items==="string" ? JSON.parse(o.items) : o.items;
-    }catch(e){ items=[]; }
-
-    let itemHTML="";
-
-    items.forEach(i=>{
-      itemHTML += `<div class="item">${escapeHTML(i.name)} x${i.qty}</div>`;
-    });
-
-    const status = normalizeStatus(o.status);
-
-    html += `
-    <div class="order">
-
-      <div>🕒 ${o.time}</div>
-
-      ${itemHTML}
-
-      <div>💰 $${o.total}</div>
-
-      <div>💳 ${o.paymentMethod||"CASH"} / ${o.paymentStatus||"UNPAID"}</div>
-
-      <div>📦 ${status}</div>
-
-      <div class="status">
-        ${renderButtons(o.orderId, status)}
-      </div>
-
-    </div>`;
-  });
-
-  document.getElementById("orders").innerHTML = html;
-}
-
-/**********************
-🔄 狀態標準化
-**********************/
-function normalizeStatus(s){
-  if(s==="NEW") return "pending";
-  if(s==="DOING") return "cooking";
-  return (s||"pending").toLowerCase();
-}
-
-/**********************
-🔘 按鈕
-**********************/
-function renderButtons(orderId,status){
-
-  return `
-    <button class="pending" onclick="update('${orderId}','pending')">待接單</button>
-    <button class="accepted" onclick="update('${orderId}','accepted')">已接單</button>
-    <button class="cooking" onclick="update('${orderId}','cooking')">製作中</button>
-    <button class="done" onclick="update('${orderId}','done')">完成</button>
-  `;
-}
-
-/**********************
-📡 更新狀態
-**********************/
-async function update(orderId,status){
-
-  try{
-
-    await callAPI({
-      action:"updateOrderStatus",
-      orderId,
-      status: status.toUpperCase()
-    });
-
-    loadOrders();
-
-  }catch(err){
-    alert("❌ "+err.message);
-  }
-}
-
-/**********************
-🔁 Polling（防炸）
-**********************/
-let polling = null;
-
-function startPolling(){
-
-  if(polling) clearInterval(polling);
-
-  polling = setInterval(()=>{
-    if(localStorage.getItem("token")){
-      loadOrders();
-    }
-  },5000);
-}
-
-/**********************
-🚀 初始化
-**********************/
-function init(){
-
-  const token = localStorage.getItem("token");
-
-  if(token){
-    enterMain();
-  }
-
-  startPolling();
-}
-
-init();
-
+loadOrders();
+setInterval(loadOrders,3000);
 </script>
 
 </body>
