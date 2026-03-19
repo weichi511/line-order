@@ -245,10 +245,15 @@ function loadMyOrders(){
 
       // ✅ 是否可取消（2分鐘內 + PENDING）
       let canCancel = false;
-      if(o.status === "PENDING"){
-        const diff = (Date.now() - new Date(o.time)) / 1000;
-        if(diff <= 120) canCancel = true;
-      }
+    let canCancel = false;
+
+if(o.status === "PENDING"){
+  const diff = (Date.now() - new Date(o.time)) / 1000;
+
+  if(diff <= 120){
+    canCancel = true;
+  }
+}
 
       el.innerHTML += `
         <div style="
