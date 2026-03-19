@@ -212,10 +212,13 @@ function submitOrder(){
 /************************************************
  * 📦 訂單
  ************************************************/
+let lastOrders = "";
+
 function loadMyOrders(){
 
   const storeId = new URLSearchParams(location.search).get("storeId");
   const userId = localStorage.getItem("userId");
+
   if(!storeId || !userId) return;
 
   const payload = encodeURIComponent(JSON.stringify({
@@ -228,40 +231,65 @@ function loadMyOrders(){
   .then(res=>res.json())
   .then(res=>{
 
-    if(res.status !== "ok") return;
+    console.log("MY ORDERS:", res);
+
+    const el = document.getElementById("orders");
+
+    if(res.status !== "ok"){
+      el.innerHTML = "❌ 訂單載入失敗";
+      return;
+    }
+
+    if(res.data.length === 0){
+      el.innerHTML = "🪹 尚無訂單";
+      return;
+    }
 
     const newData = JSON.stringify(res.data);
     if(newData === lastOrders) return;
     lastOrders = newData;
 
-    const el = document.getElementById("orders");
+    el.innerHTML = "<h3>📦 我的訂單（即時更新）</h3>";
 
-    el.innerHTML = "<h3>📦 我的訂單</h3>";
+    res.data.reverse().forEach(o=>{
 
-   res.data.reverse().forEach(o=>{
-  el.innerHTML += `
-    <div style="
-      background:#fff;
-      margin:10px;
-      padding:15px;
-      border-radius:12px;
-      border-left:6px solid ${
-        o.status === "DONE" ? "#00c853" :
-        o.status === "COOKING" ? "#ff9800" :
-        o.status === "ACCEPTED" ? "#673ab7" :
-        "#2196f3"
-      };
-    ">
-      🆔 ${o.orderId}<br>
-      💰 $${o.total}<br>
-      🚦 ${o.status}<br>
-      <small>${new Date(o.time).toLocaleString()}</small>
-    </div>
-  `;
-});
+      // ✅ 🔥 解析品項
+      let items = [];
+      try{
+        items = JSON.parse(o.items);
+      }catch(e){}
 
-    
+      let itemHtml = items
+        .map(i=>`• ${i.name} x${i.qty}`)
+        .join("<br>");
 
+      el.innerHTML += `
+        <div style="
+          background:#fff;
+          margin:10px;
+          padding:15px;
+          border-radius:12px;
+          border-left:6px solid ${
+            o.status === "DONE" ? "#00c853" :
+            o.status === "COOKING" ? "#ff9800" :
+            o.status === "ACCEPTED" ? "#673ab7" :
+            "#2196f3"
+          };
+        ">
+          🆔 ${o.orderId}<br><br>
+
+          ${itemHtml || "（無品項資料）"}<br><br>
+
+          💰 $${o.total}<br>
+          🚦 ${o.status}<br>
+          <small>${new Date(o.time).toLocaleString()}</small>
+        </div>
+      `;
+    });
+
+  })
+  .catch(err=>{
+    console.error(err);
   });
 }
 
